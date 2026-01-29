@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Visualizing Analytics</title>
+  <style>
+    :root {
+      --bg: #f3efe6;
+      --ink: #1f1b16;
+      --accent: #d9480f;
+      --soft: #fff8f0;
+      --grid: #e4dac8;
+      --good: #1b7f55;
+      --muted: #6f6a63;
+    }
+    body {
+      margin: 0;
+      font-family: "Georgia", "Times New Roman", serif;
+      background: radial-gradient(circle at 20% 10%, #fff 0%, #f3efe6 40%, #efe7da 100%);
+      color: var(--ink);
+      min-height: 100vh;
+    }
+    header {
+      padding: 26px 28px 10px 28px;
+    }
+    h1 {
+      margin: 0 0 6px 0;
+      font-size: 32px;
+      letter-spacing: 0.4px;
+    }
+    p {
+      margin: 6px 0;
+      line-height: 1.5;
+    }
+    .wrap {
+      display: grid;
+      grid-template-columns: minmax(260px, 360px) minmax(520px, 1fr);
+      gap: 16px;
+      padding: 12px 28px 28px 28px;
+    }
+    .panel {
+      background: var(--soft);
+      border: 2px solid #e1d8c8;
+      border-radius: 10px;
+      padding: 16px 18px;
+      box-shadow: 0 8px 18px rgba(0,0,0,0.08);
+    }
+    .hero {
+      display: grid;
+      gap: 12px;
+    }
+    .tile {
+      border-radius: 12px;
+      border: 2px solid #e1d8c8;
+      background: #fff;
+      padding: 12px 14px;
+      position: relative;
+      overflow: hidden;
+    }
+    .tile::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(115deg, rgba(217,72,15,0.09), rgba(27,127,85,0.06));
+      opacity: 0.7;
+      pointer-events: none;
+    }
+    .tile h3 {
+      margin: 0 0 6px 0;
+      font-size: 18px;
+    }
+    .cta {
+      display: inline-block;
+      margin-top: 10px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      background: var(--accent);
+      color: #fff;
+      text-decoration: none;
+      font-weight: bold;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+      margin-top: 10px;
+    }
+    .chip {
+      display: inline-block;
+      font-size: 13px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid #d8cdbb;
+      background: #fffdf8;
+      color: var(--muted);
+      margin-right: 6px;
+      margin-top: 6px;
+    }
+    .rule {
+      height: 2px;
+      background: #e4dac8;
+      margin: 10px 0 6px 0;
+    }
+    .list {
+      margin: 0;
+      padding-left: 18px;
+      line-height: 1.6;
+    }
+    .muted {
+      color: var(--muted);
+    }
+    .mini-canvas {
+      width: 100%;
+      height: 280px;
+      border: 2px solid #e1d8c8;
+      border-radius: 10px;
+      background: #fff;
+      display: block;
+    }
+    footer {
+      padding: 8px 28px 22px 28px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    @media (max-width: 980px) {
+      .wrap {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Visualizing Analytics</h1>
+    <p>Interactive demonstrations for ITM 4150 — explore models, geometry, and intuition through hands‑on visuals.</p>
+  </header>
+
+  <div class="wrap">
+    <section class="panel hero">
+      <div>
+        <p><strong>What this site is</strong></p>
+        <p class="muted">A collection of mini‑labs that turn statistical learning into something you can see and feel. Each activity has a short goal, a few controls, and immediate feedback.</p>
+        <div class="rule"></div>
+        <p><strong>Start here</strong></p>
+        <p class="muted">Use the SVM margin slider to explore how soft‑margin strength changes the decision boundary.</p>
+        <a class="cta" href="support_vector_game.html">Open SVM Margin Slider</a>
+      </div>
+
+      <div class="tile">
+        <h3>Learning goals</h3>
+        <div class="grid">
+          <div>
+            <p><strong>Geometry</strong></p>
+            <p class="muted">See boundaries, margins, and support vectors as the model updates.</p>
+          </div>
+          <div>
+            <p><strong>Trade‑offs</strong></p>
+            <p class="muted">Balance accuracy and margin with a single slider you control.</p>
+          </div>
+          <div>
+            <p><strong>Interpretation</strong></p>
+            <p class="muted">Connect math to outcomes with instant visual feedback.</p>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <span class="chip">Classification</span>
+        <span class="chip">Margins</span>
+        <span class="chip">Optimization</span>
+        <span class="chip">Interactive</span>
+      </div>
+    </section>
+
+    <section class="panel">
+      <canvas class="mini-canvas" id="miniPlot" width="800" height="280"></canvas>
+      <p class="muted">Quick preview: a stylized SVM boundary with two clustered classes.</p>
+    </section>
+  </div>
+
+  <footer>
+    Visualizing Analytics • ITM 4150
+  </footer>
+
+  <script>
+    const canvas = document.getElementById("miniPlot");
+    const ctx = canvas.getContext("2d");
+
+    function resizeMiniCanvas() {
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = Math.round(rect.width * dpr);
+      canvas.height = Math.round(rect.height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      drawMini();
+    }
+
+    function drawMini() {
+      const pad = 30;
+      const w = canvas.width / (window.devicePixelRatio || 1);
+      const h = canvas.height / (window.devicePixelRatio || 1);
+
+      ctx.clearRect(0, 0, w, h);
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, w, h);
+
+      ctx.strokeStyle = "#e4dac8";
+      for (let x = pad; x <= w - pad; x += 40) {
+        ctx.beginPath();
+        ctx.moveTo(x, pad);
+        ctx.lineTo(x, h - pad);
+        ctx.stroke();
+      }
+      for (let y = pad; y <= h - pad; y += 40) {
+        ctx.beginPath();
+        ctx.moveTo(pad, y);
+        ctx.lineTo(w - pad, y);
+        ctx.stroke();
+      }
+
+      const points = [];
+      for (let i = 0; i < 18; i++) {
+        points.push({ x: 110 + Math.random() * 220, y: 70 + Math.random() * 120, label: 0 });
+        points.push({ x: w - 110 - Math.random() * 220, y: h - 70 - Math.random() * 120, label: 1 });
+      }
+
+      for (const pt of points) {
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, 6, 0, Math.PI * 2);
+        ctx.fillStyle = pt.label === 0 ? "#e76f51" : "#6c757d";
+        ctx.fill();
+        ctx.strokeStyle = "#fff";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+
+      ctx.strokeStyle = "#444";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(pad + 10, h - pad - 10);
+      ctx.lineTo(w - pad - 10, pad + 10);
+      ctx.stroke();
+
+      ctx.strokeStyle = "#777";
+      ctx.setLineDash([8, 6]);
+      ctx.beginPath();
+      ctx.moveTo(pad + 28, h - pad - 10);
+      ctx.lineTo(w - pad - 10, pad + 28);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(pad + 10, h - pad - 28);
+      ctx.lineTo(w - pad - 28, pad + 10);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    window.addEventListener("resize", resizeMiniCanvas);
+    resizeMiniCanvas();
+  </script>
+</body>
+</html>
