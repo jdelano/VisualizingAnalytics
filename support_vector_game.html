@@ -380,6 +380,15 @@
       return { accuracy, objective, inMargin, misclassified, marginWidth };
     }
 
+    function resizeCanvas() {
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = Math.round(rect.width * dpr);
+      canvas.height = Math.round(rect.height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      render();
+    }
+
     function render() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       drawAxes();
@@ -518,7 +527,8 @@
       }
     });
 
-    render();
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
   </script>
 </body>
 </html>
