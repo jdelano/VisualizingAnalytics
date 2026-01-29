@@ -1,0 +1,524 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SVM Margin Slider</title>
+  <style>
+    :root {
+      --bg: #f3efe6;
+      --ink: #1f1b16;
+      --accent: #d9480f;
+      --soft: #fff8f0;
+      --grid: #e4dac8;
+      --good: #1b7f55;
+      --warn: #b00020;
+      --muted: #6f6a63;
+    }
+    body {
+      margin: 0;
+      font-family: "Georgia", "Times New Roman", serif;
+      background: radial-gradient(circle at 20% 10%, #fff 0%, #f3efe6 40%, #efe7da 100%);
+      color: var(--ink);
+    }
+    header {
+      padding: 24px 28px 8px 28px;
+    }
+    h1 { margin: 0 0 6px 0; font-size: 28px; letter-spacing: 0.4px; }
+    p { margin: 6px 0; line-height: 1.4; }
+    .wrap {
+      display: grid;
+      grid-template-columns: minmax(300px, 360px) minmax(520px, 1fr);
+      gap: 16px;
+      padding: 12px 28px 28px 28px;
+    }
+    .panel {
+      background: var(--soft);
+      border: 2px solid #e1d8c8;
+      border-radius: 10px;
+      padding: 14px 16px;
+      box-shadow: 0 8px 18px rgba(0,0,0,0.08);
+    }
+    canvas {
+      width: 100%;
+      height: 520px;
+      border: 2px solid #e1d8c8;
+      border-radius: 10px;
+      background: #fff;
+      display: block;
+    }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    label { font-weight: bold; }
+    input[type="text"] {
+      padding: 8px 10px;
+      border: 1px solid #cbbfa9;
+      border-radius: 6px;
+      font-size: 15px;
+    }
+    input[type="range"] { width: 100%; }
+    button {
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: none;
+      background: var(--accent);
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .status { margin-top: 10px; font-weight: bold; min-height: 1.2em; }
+    .good { color: var(--good); }
+    .bad { color: var(--warn); }
+    .muted { color: var(--muted); }
+    code {
+      display: inline-block;
+      background: #f1e8d9;
+      padding: 4px 6px;
+      border-radius: 6px;
+      font-weight: bold;
+      letter-spacing: 0.5px;
+    }
+    .legend { margin-top: 8px; font-size: 14px; }
+    .legend span { display: inline-block; margin-right: 10px; }
+    .stat { font-variant-numeric: tabular-nums; }
+    .metrics {
+      margin-top: 8px;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 6px;
+    }
+    .metric {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+      white-space: nowrap;
+    }
+    .metric strong {
+      font-size: 16px;
+    }
+    .metric .label {
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>SVM Margin Slider</h1>
+    <p>Enter your Student ID, then slide to adjust C (soft‑margin strength). The boundary is re‑fit each time. Your goal: get an objective score that is very close to the best possible score.</p>
+  </header>
+
+  <div class="wrap">
+    <div class="panel">
+      <p><strong>Enter your 6-digit Student ID and click Generate Points.</strong></p>
+      <div class="row">
+        <label for="studentId">Student ID</label>
+        <input id="studentId" type="text" inputmode="numeric" pattern="\d{6}" maxlength="6" placeholder="e.g., 123456" />
+        <button id="seedBtn">Generate Points</button>
+      </div>
+
+      <p class="muted">Each Student ID gets a unique dataset. Use the same ID every time.</p>
+
+      <div style="margin-top:12px;">
+        <label for="cSlider">C (soft‑margin strength)</label>
+        <input id="cSlider" type="range" min="0.2" max="6" step="0.1" value="1.0" />
+        <div class="metrics">
+          <div class="metric">
+            <span class="label">Objective score</span>
+            <strong class="stat" id="objectiveScore">0.00</strong>
+          </div>
+          <div class="metric">
+            <span class="label">C value</span>
+            <span class="stat" id="cValue">1.0</span>
+          </div>
+          <div class="metric">
+            <span class="label">Margin width</span>
+            <span class="stat" id="marginWidth">0.00</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:10px;">
+        <button id="checkBtn">Check result</button>
+      </div>
+      <div class="status" id="status"></div>
+      <p id="codeBox" style="display:none;">Your code: <code id="codeText"></code></p>
+    </div>
+    <div class="panel">
+      <canvas id="plot" width="800" height="520"></canvas>
+      <div class="legend">
+        <span>● Class 0</span>
+        <span>○ Class 1</span>
+        <span style="border:2px solid #000;padding:1px 4px;">□ In margin</span>
+        <span style="outline:2px solid #b00020;padding:1px 4px;">✕ Misclassified</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const gameId = "SVM-MARGIN-2026";
+
+    const canvas = document.getElementById("plot");
+    const ctx = canvas.getContext("2d");
+    const pad = 50;
+    const xMin = 0, xMax = 10.5;
+    const yMin = 0.6, yMax = 6.2;
+
+    function sx(x) { return pad + (x - xMin) * (canvas.width - 2 * pad) / (xMax - xMin); }
+    function sy(y) { return canvas.height - pad - (y - yMin) * (canvas.height - 2 * pad) / (yMax - yMin); }
+
+    function signedDistance(pt, line) {
+      return (line.a * pt.x + line.b * pt.y + line.c) / Math.sqrt(line.a * line.a + line.b * line.b);
+    }
+
+    function drawAxes() {
+      ctx.strokeStyle = "#e4dac8";
+      ctx.lineWidth = 1;
+      for (let x = 0; x <= 10; x += 1) {
+        const px = sx(x);
+        ctx.beginPath();
+        ctx.moveTo(px, sy(yMin));
+        ctx.lineTo(px, sy(yMax));
+        ctx.stroke();
+      }
+      for (let y = 1; y <= 6; y += 1) {
+        const py = sy(y);
+        ctx.beginPath();
+        ctx.moveTo(sx(xMin), py);
+        ctx.lineTo(sx(xMax), py);
+        ctx.stroke();
+      }
+    }
+
+    function drawLine(line, style, dash) {
+      ctx.strokeStyle = style;
+      ctx.setLineDash(dash || []);
+      ctx.lineWidth = 2;
+      const y1 = -line.a * xMin - line.c;
+      const y2 = -line.a * xMax - line.c;
+      ctx.beginPath();
+      ctx.moveTo(sx(xMin), sy(y1));
+      ctx.lineTo(sx(xMax), sy(y2));
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    function offsetLine(line, signedDistance) {
+      const scale = Math.sqrt(line.a * line.a + line.b * line.b);
+      return { a: line.a, b: line.b, c: line.c - signedDistance * scale };
+    }
+
+    function mulberry32(seed) {
+      return function() {
+        let t = seed += 0x6D2B79F5;
+        t = Math.imul(t ^ t >>> 15, t | 1);
+        t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+        return ((t ^ t >>> 14) >>> 0) / 4294967296;
+      };
+    }
+
+    function hashString(str) {
+      let h = 2166136261;
+      for (let i = 0; i < str.length; i++) {
+        h ^= str.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+      }
+      return h >>> 0;
+    }
+
+    function generatePoints(seedStr) {
+      const seed = hashString(seedStr + "|" + gameId);
+      const rnd = mulberry32(seed);
+      const pts = [];
+      const baseSlope = -0.35;
+      const baseIntercept = 4.6;
+      const scale = Math.sqrt(1 + baseSlope * baseSlope);
+
+      for (let i = 0; i < 34; i++) {
+        const x = 0.5 + rnd() * 9.5;
+        const base = baseIntercept + baseSlope * x;
+        const d = 0.6 + rnd() * 1.6;
+        const noise = (rnd() - 0.5) * 0.3;
+        const y = base - d * scale + noise;
+        pts.push({ x, y, label: 0 });
+      }
+
+      for (let i = 0; i < 34; i++) {
+        const x = 0.5 + rnd() * 9.5;
+        const base = baseIntercept + baseSlope * x;
+        const d = 0.6 + rnd() * 1.6;
+        const noise = (rnd() - 0.5) * 0.3;
+        const y = base + d * scale + noise;
+        pts.push({ x, y, label: 1 });
+      }
+
+      for (let i = 0; i < 6; i++) {
+        const idx = Math.floor(rnd() * pts.length);
+        const bump = (rnd() < 0.5 ? -1 : 1) * (0.2 + rnd() * 0.4);
+        pts[idx].y += bump;
+        if (rnd() < 0.4) pts[idx].label = 1 - pts[idx].label;
+      }
+
+      return pts;
+    }
+
+    let points = [];
+    let activeStudentId = "";
+
+    function trainLinearSVM(pts, C) {
+      const xs = pts.map(p => p.x);
+      const ys = pts.map(p => p.y);
+      const xMean = xs.reduce((a, v) => a + v, 0) / xs.length;
+      const yMean = ys.reduce((a, v) => a + v, 0) / ys.length;
+      const xStd = Math.sqrt(xs.reduce((a, v) => a + (v - xMean) ** 2, 0) / xs.length) || 1;
+      const yStd = Math.sqrt(ys.reduce((a, v) => a + (v - yMean) ** 2, 0) / ys.length) || 1;
+
+      const X = pts.map(p => ({
+        x: (p.x - xMean) / xStd,
+        y: (p.y - yMean) / yStd,
+        label: p.label === 1 ? 1 : -1
+      }));
+
+      const n = X.length;
+      const alphas = new Array(n).fill(0);
+      let b = 0;
+      const tol = 1e-3;
+      const maxPasses = 5;
+      let passes = 0;
+
+      function f(i) {
+        let sum = 0;
+        const xi = X[i];
+        for (let j = 0; j < n; j++) {
+          if (alphas[j] === 0) continue;
+          const xj = X[j];
+          sum += alphas[j] * xj.label * (xj.x * xi.x + xj.y * xi.y);
+        }
+        return sum + b;
+      }
+
+      while (passes < maxPasses) {
+        let changed = 0;
+        for (let i = 0; i < n; i++) {
+          const xi = X[i];
+          const Ei = f(i) - xi.label;
+          if ((xi.label * Ei < -tol && alphas[i] < C) || (xi.label * Ei > tol && alphas[i] > 0)) {
+            const j = (i + 1 + (i % (n - 1))) % n;
+            const xj = X[j];
+            const Ej = f(j) - xj.label;
+
+            let L, H;
+            if (xi.label !== xj.label) {
+              L = Math.max(0, alphas[j] - alphas[i]);
+              H = Math.min(C, C + alphas[j] - alphas[i]);
+            } else {
+              L = Math.max(0, alphas[i] + alphas[j] - C);
+              H = Math.min(C, alphas[i] + alphas[j]);
+            }
+            if (L === H) continue;
+
+            const kii = xi.x * xi.x + xi.y * xi.y;
+            const kjj = xj.x * xj.x + xj.y * xj.y;
+            const kij = xi.x * xj.x + xi.y * xj.y;
+            const eta = 2 * kij - kii - kjj;
+            if (eta >= 0) continue;
+
+            let aj = alphas[j] - (xj.label * (Ei - Ej)) / eta;
+            if (aj > H) aj = H;
+            if (aj < L) aj = L;
+            if (Math.abs(aj - alphas[j]) < 1e-5) continue;
+
+            const ai = alphas[i] + xi.label * xj.label * (alphas[j] - aj);
+            const b1 = b - Ei - xi.label * (ai - alphas[i]) * kii - xj.label * (aj - alphas[j]) * kij;
+            const b2 = b - Ej - xi.label * (ai - alphas[i]) * kij - xj.label * (aj - alphas[j]) * kjj;
+
+            if (ai > 0 && ai < C) b = b1;
+            else if (aj > 0 && aj < C) b = b2;
+            else b = (b1 + b2) / 2;
+
+            alphas[i] = ai;
+            alphas[j] = aj;
+            changed += 1;
+          }
+        }
+        if (changed === 0) passes += 1;
+        else passes = 0;
+      }
+
+      let w1 = 0, w2 = 0;
+      for (let i = 0; i < n; i++) {
+        w1 += alphas[i] * X[i].label * X[i].x;
+        w2 += alphas[i] * X[i].label * X[i].y;
+      }
+
+      const w1s = w1 / xStd;
+      const w2s = w2 / yStd;
+      const bs = b - w1 * xMean / xStd - w2 * yMean / yStd;
+      return { w1: w1s, w2: w2s, b: bs };
+    }
+
+    function computeStats(model, C) {
+      let correct = 0;
+      let total = points.length;
+      let inMargin = 0;
+      let misclassified = 0;
+      const norm = Math.hypot(model.w1, model.w2);
+      const hardMargin = norm > 0 ? 2 / norm : 0;
+      const softFactor = Math.sqrt(1 / Math.max(C, 1e-6));
+      const marginWidth = hardMargin * softFactor;
+      const half = marginWidth / 2;
+
+      for (const pt of points) {
+        const d = (model.w1 * pt.x + model.w2 * pt.y + model.b) / (norm || 1);
+        const pred = d >= 0 ? 1 : 0;
+        const actual = pt.label;
+        if (pred === actual) correct++; else misclassified++;
+        if (Math.abs(d) <= half) inMargin++;
+      }
+      const accuracy = total ? correct / total : 0;
+      const marginPenalty = 0.20 * (1 / (marginWidth + 1));
+      const objective = accuracy - 0.35 * (inMargin / total) - marginPenalty;
+      return { accuracy, objective, inMargin, misclassified, marginWidth };
+    }
+
+    function render() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawAxes();
+
+      if (!points.length) {
+        document.getElementById("cValue").textContent = "1.0";
+        document.getElementById("marginWidth").textContent = "0.00";
+        document.getElementById("objectiveScore").textContent = "0.00";
+        return;
+      }
+
+      const C = parseFloat(document.getElementById("cSlider").value);
+      const model = trainLinearSVM(points, C);
+      const boundary = { a: model.w1, b: model.w2, c: model.b };
+      const stats = computeStats(model, C);
+      const half = stats.marginWidth / 2;
+
+      drawLine(boundary, "#444", []);
+      drawLine(offsetLine(boundary, half), "#777", [8, 6]);
+      drawLine(offsetLine(boundary, -half), "#777", [8, 6]);
+
+      points.forEach((pt) => {
+        const d = signedDistance(pt, boundary);
+        const inMargin = Math.abs(d) <= half;
+        const pred = d >= 0 ? 1 : 0;
+        const misclassified = pred !== pt.label;
+
+        const px = sx(pt.x);
+        const py = sy(pt.y);
+        ctx.beginPath();
+        ctx.arc(px, py, 7, 0, Math.PI * 2);
+        ctx.fillStyle = pt.label === 0 ? "#e76f51" : "#6c757d";
+        ctx.fill();
+
+        if (inMargin) {
+          ctx.strokeStyle = "#000";
+          ctx.lineWidth = 3;
+          ctx.stroke();
+        } else {
+          ctx.strokeStyle = "#fff";
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+
+        if (misclassified) {
+          ctx.strokeStyle = "#b00020";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(px, py, 10, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      });
+
+      document.getElementById("cValue").textContent = C.toFixed(1);
+      document.getElementById("marginWidth").textContent = stats.marginWidth.toFixed(2);
+      document.getElementById("objectiveScore").textContent = stats.objective.toFixed(2);
+    }
+
+    async function sha256(text) {
+      const data = new TextEncoder().encode(text);
+      const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+    }
+
+    document.getElementById("seedBtn").addEventListener("click", () => {
+      let id = document.getElementById("studentId").value;
+      id = id.replace(/\D/g, "");
+      const status = document.getElementById("status");
+      if (!/^\d{6}$/.test(id)) {
+        status.textContent = "Please enter a 6-digit Student ID.";
+        status.className = "status bad";
+        return;
+      }
+      activeStudentId = id;
+      points = generatePoints(id);
+      status.textContent = "Dataset generated. Adjust C, then click Check result.";
+      status.className = "status good";
+      document.getElementById("codeBox").style.display = "none";
+      render();
+    });
+
+    document.getElementById("cSlider").addEventListener("input", () => {
+      if (!points.length) return;
+      render();
+    });
+
+    function maxObjective() {
+      let best = null;
+      let c = 0.2;
+      while (c <= 6.0001) {
+        const model = trainLinearSVM(points, c);
+        const stats = computeStats(model, c);
+        if (best === null || stats.objective > best) best = stats.objective;
+        c = Math.round((c + 0.1) * 10) / 10;
+      }
+      return best ?? 0;
+    }
+
+    document.getElementById("checkBtn").addEventListener("click", async () => {
+      let id = document.getElementById("studentId").value;
+      id = id.replace(/\\D/g, "");
+      const status = document.getElementById("status");
+      if (!/^\d{6}$/.test(id)) {
+        if (/^\d{6}$/.test(activeStudentId)) {
+          id = activeStudentId;
+        } else {
+          status.textContent = "Please enter a 6-digit Student ID.";
+          status.className = "status bad";
+          return;
+        }
+      }
+      if (!points.length) {
+        status.textContent = "Generate points first.";
+        status.className = "status bad";
+        return;
+      }
+      const C = parseFloat(document.getElementById("cSlider").value);
+      const model = trainLinearSVM(points, C);
+      const stats = computeStats(model, C);
+      const best = maxObjective();
+      const tol = 0.01;
+
+      if (stats.objective >= best - tol) {
+        const codePayload = `${id}|${gameId}|${C.toFixed(1)}`;
+        const hash = await sha256(codePayload);
+        const code = hash.slice(0, 10).toUpperCase();
+        document.getElementById("codeText").textContent = code;
+        document.getElementById("codeBox").style.display = "block";
+        status.textContent = "Nice work! Your score is close to the best possible.";
+        status.className = "status good";
+      } else {
+        document.getElementById("codeBox").style.display = "none";
+        status.textContent = "Not quite. Try a different C value.";
+        status.className = "status bad";
+      }
+    });
+
+    render();
+  </script>
+</body>
+</html>
