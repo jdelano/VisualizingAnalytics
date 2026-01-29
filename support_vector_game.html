@@ -162,9 +162,11 @@
     const pad = 50;
     const xMin = 0, xMax = 10.5;
     const yMin = 0.6, yMax = 6.2;
+    let drawWidth = canvas.width;
+    let drawHeight = canvas.height;
 
-    function sx(x) { return pad + (x - xMin) * (canvas.width - 2 * pad) / (xMax - xMin); }
-    function sy(y) { return canvas.height - pad - (y - yMin) * (canvas.height - 2 * pad) / (yMax - yMin); }
+    function sx(x) { return pad + (x - xMin) * (drawWidth - 2 * pad) / (xMax - xMin); }
+    function sy(y) { return drawHeight - pad - (y - yMin) * (drawHeight - 2 * pad) / (yMax - yMin); }
 
     function signedDistance(pt, line) {
       return (line.a * pt.x + line.b * pt.y + line.c) / Math.sqrt(line.a * line.a + line.b * line.b);
@@ -383,14 +385,16 @@
     function resizeCanvas() {
       const dpr = window.devicePixelRatio || 1;
       const rect = canvas.getBoundingClientRect();
-      canvas.width = Math.round(rect.width * dpr);
-      canvas.height = Math.round(rect.height * dpr);
+      drawWidth = rect.width;
+      drawHeight = rect.height;
+      canvas.width = Math.round(drawWidth * dpr);
+      canvas.height = Math.round(drawHeight * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       render();
     }
 
     function render() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.clearRect(0, 0, drawWidth, drawHeight);
       drawAxes();
 
       if (!points.length) {

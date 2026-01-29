@@ -186,20 +186,24 @@
   <script>
     const canvas = document.getElementById("miniPlot");
     const ctx = canvas.getContext("2d");
+    let drawWidth = canvas.width;
+    let drawHeight = canvas.height;
 
     function resizeMiniCanvas() {
       const dpr = window.devicePixelRatio || 1;
       const rect = canvas.getBoundingClientRect();
-      canvas.width = Math.round(rect.width * dpr);
-      canvas.height = Math.round(rect.height * dpr);
+      drawWidth = rect.width;
+      drawHeight = rect.height;
+      canvas.width = Math.round(drawWidth * dpr);
+      canvas.height = Math.round(drawHeight * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       drawMini();
     }
 
     function drawMini() {
       const pad = 30;
-      const w = canvas.width / (window.devicePixelRatio || 1);
-      const h = canvas.height / (window.devicePixelRatio || 1);
+      const w = drawWidth;
+      const h = drawHeight;
 
       ctx.clearRect(0, 0, w, h);
       ctx.fillStyle = "#fff";
