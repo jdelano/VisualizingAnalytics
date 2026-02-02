@@ -1,0 +1,921 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Neural Network Training Playground</title>
+  <style>
+    :root {
+      --bg: #f6f2e8;
+      --ink: #1a1a1a;
+      --accent: #0e7c86;
+      --accent-2: #d04e16;
+      --grid: #d7d1c4;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "IBM Plex Sans", "Fira Sans", "Trebuchet MS", sans-serif;
+      color: var(--ink);
+      background: radial-gradient(circle at top left, #fff7e6 0%, var(--bg) 45%, #f1eadc 100%);
+    }
+
+    header {
+      padding: 20px 24px 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 22px;
+      letter-spacing: 0.5px;
+    }
+
+    header p {
+      margin: 0;
+      font-size: 13px;
+      opacity: 0.8;
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 330px;
+      gap: 18px;
+      padding: 12px 24px 24px;
+    }
+
+    .card {
+      background: #fff;
+      border: 1px solid #e2dbc9;
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(40, 32, 22, 0.1);
+    }
+
+    #canvasWrap {
+      padding: 16px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 280px;
+      gap: 16px;
+      align-items: start;
+    }
+
+    #decision,
+    #network {
+      width: 100%;
+      height: 420px;
+      display: block;
+      border-radius: 12px;
+      background: linear-gradient(180deg, #fffdf7 0%, #f6f1e6 100%);
+    }
+
+    #panel {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    #panel h2 {
+      margin: 0;
+      font-size: 16px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .metric {
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #f8f4eb;
+      border: 1px solid #e6decf;
+      font-size: 13px;
+    }
+
+    .metric strong {
+      display: block;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      opacity: 0.7;
+      margin-bottom: 4px;
+    }
+
+    .controls {
+      display: grid;
+      gap: 8px;
+    }
+
+    .control {
+      display: grid;
+      gap: 4px;
+      font-size: 12px;
+    }
+
+    .control label {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      font-weight: 600;
+    }
+
+    .control input[type="range"] {
+      width: 100%;
+    }
+
+    .actions {
+      margin-top: auto;
+      display: grid;
+      gap: 8px;
+    }
+
+    button {
+      border: none;
+      padding: 10px 14px;
+      border-radius: 10px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    button.secondary {
+      background: #444;
+    }
+
+    button:active { transform: translateY(1px); }
+
+    .hint {
+      font-size: 12px;
+      opacity: 0.75;
+      line-height: 1.4;
+    }
+
+    .legend {
+      display: grid;
+      gap: 6px;
+      font-size: 12px;
+    }
+
+    .legend-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .legend-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      border: 1px solid #1a1a1a;
+    }
+
+    .legend-dot.teal { background: #0e7c86; }
+    .legend-dot.orange { background: #d04e16; }
+
+    @media (max-width: 1100px) {
+      #canvasWrap { grid-template-columns: 1fr; }
+      #decision, #network { height: 360px; }
+    }
+
+    @media (max-width: 900px) {
+      main { grid-template-columns: 1fr; }
+      #panel { order: -1; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Neural Network Training Playground</h1>
+    <p>Watch a 2‑3‑1 network learn a 2D classification task, one step at a time.</p>
+  </header>
+
+  <main>
+    <section id="canvasWrap" class="card">
+      <canvas id="decision" width="600" height="420"></canvas>
+      <canvas id="network" width="280" height="420"></canvas>
+    </section>
+
+    <aside id="panel" class="card">
+      <h2>Training Controls</h2>
+      <div class="metric" id="status">
+        <strong>Status</strong>
+        Ready to train.
+      </div>
+      <div class="metric" id="metrics">
+        <strong>Metrics</strong>
+        Loss: —<br />
+        Accuracy: —
+      </div>
+      <div class="metric" id="steps">
+        <strong>Steps</strong>
+        0
+      </div>
+      <div class="metric">
+        <strong>Legend</strong>
+        <div class="legend">
+          <div class="legend-row">
+            <span class="legend-dot teal"></span>
+            <span>Class 1 (teal)</span>
+          </div>
+          <div class="legend-row">
+            <span class="legend-dot orange"></span>
+            <span>Class 0 (orange)</span>
+          </div>
+        </div>
+      </div>
+      <div class="controls">
+        <div class="control">
+          <label>Learning Rate <span id="lrVal">0.20</span></label>
+          <input id="lr" type="range" min="0.01" max="1" step="0.01" value="0.20" />
+        </div>
+        <div class="control">
+          <label>Steps per Second <span id="speedVal">4</span></label>
+          <input id="speed" type="range" min="1" max="100" step="1" value="4" />
+        </div>
+        <div class="control">
+          <label>Pattern <span id="patternVal">Two Clusters</span></label>
+          <select id="pattern">
+            <option value="two">Two Clusters</option>
+            <option value="corner">Opposite Corners</option>
+          </select>
+        </div>
+      </div>
+      <p class="hint">Edges glow blue for forward flow and red for backprop. Thickness reflects |weight|.</p>
+      <div class="actions">
+        <button id="step">Advance Step</button>
+        <button id="play" class="secondary">Play</button>
+        <button id="reset" class="secondary">Reset Weights</button>
+        <button id="data" class="secondary">New Data</button>
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    const decision = document.getElementById("decision");
+    const dctx = decision.getContext("2d");
+    const network = document.getElementById("network");
+    const nctx = network.getContext("2d");
+
+    const statusEl = document.getElementById("status");
+    const metricsEl = document.getElementById("metrics");
+    const stepsEl = document.getElementById("steps");
+    const lrEl = document.getElementById("lr");
+    const lrVal = document.getElementById("lrVal");
+    const speedEl = document.getElementById("speed");
+    const speedVal = document.getElementById("speedVal");
+    const patternEl = document.getElementById("pattern");
+    const patternVal = document.getElementById("patternVal");
+
+    let learningRate = parseFloat(lrEl.value);
+    let stepsPerSecond = parseInt(speedEl.value, 10);
+    let pattern = "two";
+    let stepCount = 0;
+
+    const data = [];
+    const dataCount = 40;
+
+    const weights = {
+      w1: [randn(), randn(), randn()],
+      w2: [randn(), randn(), randn()],
+      b1: [0, 0, 0],
+      v: [randn(), randn(), randn()],
+      bout: 0,
+    };
+
+    let lastForward = null;
+    let highlightPhase = null;
+    let playTimer = null;
+    let logicalDecision = { w: decision.width, h: decision.height };
+    let logicalNetwork = { w: network.width, h: network.height };
+    let isPlaying = false;
+    let guided = null;
+    let anim = null;
+    let animFrame = null;
+
+    function randn() {
+      let u = 0, v = 0;
+      while (u === 0) u = Math.random();
+      while (v === 0) v = Math.random();
+      return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v) * 0.6;
+    }
+
+    function sigmoid(z) {
+      return 1 / (1 + Math.exp(-z));
+    }
+
+    function dsigmoid(a) {
+      return a * (1 - a);
+    }
+
+    function generateData() {
+      data.length = 0;
+      if (pattern === "two") {
+        for (let i = 0; i < dataCount; i++) {
+          const cls = i < dataCount / 2 ? 0 : 1;
+          const cx = cls === 0 ? 0.3 : 0.7;
+          const cy = cls === 0 ? 0.7 : 0.3;
+          const x = Math.min(1, Math.max(0, cx + randn() * 0.12));
+          const y = Math.min(1, Math.max(0, cy + randn() * 0.12));
+          data.push({ x, y, label: cls });
+        }
+        return;
+      }
+
+      const half = Math.floor(dataCount / 2);
+      for (let i = 0; i < dataCount; i++) {
+        const cls = i < half ? 1 : 0;
+        let cx, cy, spread;
+        if (cls === 1) {
+          const pick = i % 2 === 0 ? 0 : 1;
+          cx = pick === 0 ? 0.2 : 0.8;
+          cy = pick === 0 ? 0.8 : 0.2;
+          spread = 0.1;
+        } else {
+          cx = 0.75;
+          cy = 0.65;
+          spread = 0.18;
+        }
+        const x = Math.min(1, Math.max(0, cx + randn() * spread));
+        const y = Math.min(1, Math.max(0, cy + randn() * spread));
+        data.push({ x, y, label: cls });
+      }
+    }
+
+    function forward(x1, x2) {
+      const z = [
+        weights.w1[0] * x1 + weights.w2[0] * x2 + weights.b1[0],
+        weights.w1[1] * x1 + weights.w2[1] * x2 + weights.b1[1],
+        weights.w1[2] * x1 + weights.w2[2] * x2 + weights.b1[2],
+      ];
+      const h = z.map(sigmoid);
+      const zout = weights.v[0] * h[0] + weights.v[1] * h[1] + weights.v[2] * h[2] + weights.bout;
+      const out = sigmoid(zout);
+      return { z, h, zout, out };
+    }
+
+    function computeGradients(sample) {
+      const { z, h, out } = forward(sample.x, sample.y);
+      const error = out - sample.label;
+      const dOut = error * dsigmoid(out);
+      const dV = [dOut * h[0], dOut * h[1], dOut * h[2]];
+      const dBout = dOut;
+      const dH = [
+        dOut * weights.v[0] * dsigmoid(h[0]),
+        dOut * weights.v[1] * dsigmoid(h[1]),
+        dOut * weights.v[2] * dsigmoid(h[2]),
+      ];
+      const dW1 = dH.map((dh) => dh * sample.x);
+      const dW2 = dH.map((dh) => dh * sample.y);
+      const dB1 = dH;
+      return { z, h, out, error, dOut, dV, dBout, dH, dW1, dW2, dB1 };
+    }
+
+    function trainStep() {
+      const sample = data[Math.floor(Math.random() * data.length)];
+      const { z, h, out, dOut, dV, dBout, dW1, dW2, dB1, dH } = computeGradients(sample);
+
+      for (let i = 0; i < 3; i++) {
+        weights.v[i] -= learningRate * dV[i];
+        weights.w1[i] -= learningRate * dW1[i];
+        weights.w2[i] -= learningRate * dW2[i];
+        weights.b1[i] -= learningRate * dB1[i];
+      }
+      weights.bout -= learningRate * dBout;
+      stepCount += 1;
+
+      lastForward = { sample, z, h, out, dOut, dH };
+      highlightPhase = 0;
+      renderAll();
+      setTimeout(() => {
+        highlightPhase = 1;
+        renderAll();
+      }, 200);
+      setTimeout(() => {
+        highlightPhase = null;
+        renderAll();
+      }, 400);
+    }
+
+    function beginGuidedStep() {
+      const sample = data[Math.floor(Math.random() * data.length)];
+      const grads = computeGradients(sample);
+      guided = { sample, grads, stage: 0, edgeActive: new Set() };
+      statusEl.innerHTML = `<strong>Status</strong> Guided step ready. Press Advance to begin.`;
+    }
+
+    function applyGuidedUpdate() {
+      const g = guided.grads;
+      for (let i = 0; i < 3; i++) {
+        weights.v[i] -= learningRate * g.dV[i];
+        weights.w1[i] -= learningRate * g.dW1[i];
+        weights.w2[i] -= learningRate * g.dW2[i];
+        weights.b1[i] -= learningRate * g.dB1[i];
+      }
+      weights.bout -= learningRate * g.dBout;
+    }
+
+    function computeMetrics() {
+      let loss = 0;
+      let correct = 0;
+      for (const pt of data) {
+        const { out } = forward(pt.x, pt.y);
+        loss += pt.label * Math.log(out + 1e-9) + (1 - pt.label) * Math.log(1 - out + 1e-9);
+        const pred = out >= 0.5 ? 1 : 0;
+        if (pred === pt.label) correct++;
+      }
+      return { loss: -loss / data.length, acc: correct / data.length };
+    }
+
+    function renderDecision() {
+      const w = decision.width;
+      const h = decision.height;
+      const image = dctx.createImageData(w, h);
+      for (let y = 0; y < h; y += 3) {
+        for (let x = 0; x < w; x += 3) {
+          const nx = x / w;
+          const ny = 1 - y / h;
+          const { out } = forward(nx, ny);
+          const idx = (y * w + x) * 4;
+          const r = Math.round(208 * out + 40 * (1 - out));
+          const g = Math.round(90 * out + 150 * (1 - out));
+          const b = Math.round(95 * out + 200 * (1 - out));
+          for (let dy = 0; dy < 3; dy++) {
+            for (let dx = 0; dx < 3; dx++) {
+              const xx = x + dx;
+              const yy = y + dy;
+              if (xx >= w || yy >= h) continue;
+              const i = (yy * w + xx) * 4;
+              image.data[i] = r;
+              image.data[i + 1] = g;
+              image.data[i + 2] = b;
+              image.data[i + 3] = 255;
+            }
+          }
+        }
+      }
+      dctx.putImageData(image, 0, 0);
+
+      for (const pt of data) {
+        const cx = pt.x * w;
+        const cy = (1 - pt.y) * h;
+        dctx.beginPath();
+        dctx.fillStyle = pt.label === 1 ? "#0e7c86" : "#d04e16";
+        dctx.strokeStyle = "#1a1a1a";
+        dctx.lineWidth = 1;
+        dctx.arc(cx, cy, 5.5, 0, Math.PI * 2);
+        dctx.fill();
+        dctx.stroke();
+      }
+
+      if (guided) {
+        const cx = guided.sample.x * w;
+        const cy = (1 - guided.sample.y) * h;
+        dctx.beginPath();
+        dctx.strokeStyle = "rgba(0,0,0,0.6)";
+        dctx.lineWidth = 3;
+        dctx.arc(cx, cy, 10, 0, Math.PI * 2);
+        dctx.stroke();
+      }
+    }
+
+    function startAnim(from, to, duration, onDone) {
+      const start = performance.now();
+      anim = { from, to, duration, start, progress: 0 };
+      if (animFrame) cancelAnimationFrame(animFrame);
+      const tick = (now) => {
+        const t = Math.min(1, (now - start) / duration);
+        const ease = t * (2 - t);
+        anim.progress = ease;
+        renderAll();
+        if (t < 1) animFrame = requestAnimationFrame(tick);
+        else {
+          anim = null;
+          animFrame = null;
+          if (onDone) onDone();
+        }
+      };
+      animFrame = requestAnimationFrame(tick);
+    }
+
+    function weightColor(val) {
+      return val >= 0 ? "#3b82f6" : "#ef4444";
+    }
+
+    function weightWidth(val) {
+      return 1 + Math.min(4, Math.abs(val) * 2);
+    }
+
+    function renderNetwork() {
+      nctx.clearRect(0, 0, network.width, network.height);
+      const w = network.width;
+      const h = network.height;
+
+      const nodes = {
+        input: [
+          { x: w * 0.2, y: h * 0.25 },
+          { x: w * 0.2, y: h * 0.5 },
+        ],
+        hidden: [
+          { x: w * 0.55, y: h * 0.25 },
+          { x: w * 0.55, y: h * 0.5 },
+          { x: w * 0.55, y: h * 0.75 },
+        ],
+        out: [{ x: w * 0.85, y: h * 0.5 }],
+      };
+
+      const forwardGlow = highlightPhase === 0 ? 2 : 0;
+      const backGlow = highlightPhase === 1 ? 2 : 0;
+
+      for (let i = 0; i < 2; i++) {
+        for (let j = 0; j < 3; j++) {
+          const from = nodes.input[i];
+          const to = nodes.hidden[j];
+          const val = i === 0 ? weights.w1[j] : weights.w2[j];
+          const edgeId = `${i === 0 ? "x" : "y"}-h${j + 1}`;
+          const active = guided ? guided.edgeActive.has(edgeId) : true;
+          nctx.strokeStyle = active ? weightColor(val) : "#1a1a1a";
+          nctx.lineWidth = (active ? weightWidth(val) : 1) + forwardGlow;
+          nctx.beginPath();
+          nctx.moveTo(from.x, from.y);
+          nctx.lineTo(to.x, to.y);
+          nctx.stroke();
+          if (backGlow) {
+            nctx.strokeStyle = "rgba(239,68,68,0.6)";
+            nctx.lineWidth = 1.5 + backGlow;
+            nctx.beginPath();
+            nctx.moveTo(to.x, to.y);
+            nctx.lineTo(from.x, from.y);
+            nctx.stroke();
+          }
+        }
+      }
+
+      for (let j = 0; j < 3; j++) {
+        const from = nodes.hidden[j];
+        const to = nodes.out[0];
+        const val = weights.v[j];
+        const edgeId = `h${j + 1}-c`;
+        const active = guided ? guided.edgeActive.has(edgeId) : true;
+        nctx.strokeStyle = active ? weightColor(val) : "#1a1a1a";
+        nctx.lineWidth = (active ? weightWidth(val) : 1) + forwardGlow;
+        nctx.beginPath();
+        nctx.moveTo(from.x, from.y);
+        nctx.lineTo(to.x, to.y);
+        nctx.stroke();
+        if (backGlow) {
+          nctx.strokeStyle = "rgba(239,68,68,0.6)";
+          nctx.lineWidth = 1.5 + backGlow;
+          nctx.beginPath();
+          nctx.moveTo(to.x, to.y);
+          nctx.lineTo(from.x, from.y);
+          nctx.stroke();
+        }
+      }
+
+      function drawNode(node, label) {
+        nctx.beginPath();
+        nctx.fillStyle = "#fff";
+        nctx.strokeStyle = "#1a1a1a";
+        nctx.lineWidth = 1.5;
+        nctx.arc(node.x, node.y, 14, 0, Math.PI * 2);
+        nctx.fill();
+        nctx.stroke();
+        nctx.fillStyle = "#1a1a1a";
+        nctx.font = "12px 'IBM Plex Sans', sans-serif";
+        nctx.textAlign = "center";
+        nctx.textBaseline = "middle";
+        nctx.fillText(label, node.x, node.y);
+      }
+
+      nodes.input.forEach((n, i) => drawNode(n, i === 0 ? "x" : "y"));
+      nodes.hidden.forEach((n, i) => drawNode(n, `h${i + 1}`));
+      nodes.out.forEach((n) => drawNode(n, "c"));
+
+      if (guided) {
+        nctx.fillStyle = "#1a1a1a";
+        nctx.font = "12px 'IBM Plex Sans', sans-serif";
+        nctx.textAlign = "right";
+        nctx.textBaseline = "middle";
+        nctx.fillText(`x=${guided.sample.x.toFixed(2)}`, nodes.input[0].x - 18, nodes.input[0].y);
+        nctx.fillText(`y=${guided.sample.y.toFixed(2)}`, nodes.input[1].x - 18, nodes.input[1].y);
+
+        if (guided.stage === 3) {
+          const xVal = guided.sample.x.toFixed(2);
+          const yVal = guided.sample.y.toFixed(2);
+          const w1 = weights.w1[1].toFixed(2);
+          const w2 = weights.w2[1].toFixed(2);
+          const b = weights.b1[1].toFixed(2);
+          const z2 = guided.grads.z[1].toFixed(2);
+          const h2 = guided.grads.h[1].toFixed(2);
+          const box = { x: nodes.hidden[1].x + 16, y: nodes.hidden[1].y - 90, w: 190, h: 98 };
+
+          // comic-style callout with pointer
+          nctx.fillStyle = "#fff9ef";
+          nctx.strokeStyle = "#1a1a1a";
+          nctx.lineWidth = 1.4;
+          nctx.fillRect(box.x, box.y, box.w, box.h);
+          nctx.strokeRect(box.x, box.y, box.w, box.h);
+
+          nctx.beginPath();
+          nctx.moveTo(box.x, box.y + box.h - 18);
+          nctx.lineTo(box.x - 14, box.y + box.h - 8);
+          nctx.lineTo(nodes.hidden[1].x + 6, nodes.hidden[1].y - 4);
+          nctx.closePath();
+          nctx.fill();
+          nctx.stroke();
+
+          nctx.fillStyle = "#1a1a1a";
+          nctx.textAlign = "left";
+          nctx.textBaseline = "top";
+          nctx.fillText(`Hidden 2`, box.x + 8, box.y + 6);
+          nctx.fillText(`z2 = (${w1}·x) + (${w2}·y) + ${b}`, box.x + 8, box.y + 24);
+          nctx.fillText(`x=${xVal}, y=${yVal}`, box.x + 8, box.y + 42);
+          nctx.fillText(`z2=${z2}`, box.x + 8, box.y + 58);
+          nctx.fillText(`h2 = σ(z2) = ${h2}`, box.x + 8, box.y + 74);
+        }
+
+        if (guided.stage === 5) {
+          const out = guided.grads.out.toFixed(2);
+          const box = { x: nodes.out[0].x - 70, y: nodes.out[0].y - 70, w: 140, h: 55 };
+          nctx.fillStyle = "#fff";
+          nctx.strokeStyle = "#1a1a1a";
+          nctx.lineWidth = 1;
+          nctx.fillRect(box.x, box.y, box.w, box.h);
+          nctx.strokeRect(box.x, box.y, box.w, box.h);
+          nctx.fillStyle = "#1a1a1a";
+          nctx.textAlign = "left";
+          nctx.textBaseline = "top";
+          nctx.fillText(`c = σ(v·h + b)`, box.x + 6, box.y + 6);
+          nctx.fillText(`c=${out}`, box.x + 6, box.y + 26);
+        }
+
+        if (guided.stage === 6) {
+          const pred = guided.grads.out >= 0.5 ? 1 : 0;
+          const box = { x: nodes.out[0].x - 70, y: nodes.out[0].y + 10, w: 140, h: 42 };
+          nctx.fillStyle = "#fff";
+          nctx.strokeStyle = "#1a1a1a";
+          nctx.lineWidth = 1;
+          nctx.fillRect(box.x, box.y, box.w, box.h);
+          nctx.strokeRect(box.x, box.y, box.w, box.h);
+          nctx.fillStyle = "#1a1a1a";
+          nctx.textAlign = "left";
+          nctx.textBaseline = "top";
+          nctx.fillText(`pred=${pred} true=${guided.sample.label}`, box.x + 6, box.y + 8);
+        }
+      }
+
+      if (anim) {
+        const x = anim.from.x + (anim.to.x - anim.from.x) * anim.progress;
+        const y = anim.from.y + (anim.to.y - anim.from.y) * anim.progress;
+        nctx.beginPath();
+        nctx.fillStyle = "#1a1a1a";
+        nctx.arc(x, y, 5, 0, Math.PI * 2);
+        nctx.fill();
+      }
+    }
+
+    function updatePanel() {
+      const { loss, acc } = computeMetrics();
+      metricsEl.innerHTML = `<strong>Metrics</strong> Loss: ${loss.toFixed(3)}<br />Accuracy: ${(acc * 100).toFixed(1)}%`;
+      stepsEl.innerHTML = `<strong>Steps</strong> ${stepCount}`;
+      if (guided) {
+        statusEl.innerHTML = `<strong>Status</strong> Guided step stage ${guided.stage}. Press Advance to continue.`;
+      } else {
+        statusEl.innerHTML = `<strong>Status</strong> ${playTimer ? "Training..." : "Ready"}`;
+      }
+    }
+
+    function renderAll() {
+      renderDecision();
+      renderNetwork();
+      updatePanel();
+    }
+
+    function resizeCanvases() {
+      const drect = decision.getBoundingClientRect();
+      const nrect = network.getBoundingClientRect();
+      logicalDecision = { w: Math.round(drect.width), h: Math.round(drect.height) };
+      logicalNetwork = { w: Math.round(nrect.width), h: Math.round(nrect.height) };
+      if (decision.width !== logicalDecision.w || decision.height !== logicalDecision.h) {
+        decision.width = logicalDecision.w;
+        decision.height = logicalDecision.h;
+      }
+      if (network.width !== logicalNetwork.w || network.height !== logicalNetwork.h) {
+        network.width = logicalNetwork.w;
+        network.height = logicalNetwork.h;
+      }
+      renderAll();
+    }
+
+    function advanceGuided() {
+      if (!guided) {
+        beginGuidedStep();
+        guided.stage = 1;
+        const nodes = {
+          input: [
+            { x: network.width * 0.2, y: network.height * 0.25 },
+            { x: network.width * 0.2, y: network.height * 0.5 },
+          ],
+          hidden: [
+            { x: network.width * 0.55, y: network.height * 0.25 },
+            { x: network.width * 0.55, y: network.height * 0.5 },
+            { x: network.width * 0.55, y: network.height * 0.75 },
+          ],
+          out: [{ x: network.width * 0.85, y: network.height * 0.5 }],
+        };
+        startAnim(nodes.input[0], nodes.hidden[0], 1200, () => {
+          guided.edgeActive.add("x-h1");
+          guided.stage = 2;
+          startAnim(nodes.input[1], nodes.hidden[0], 1200, () => {
+            guided.edgeActive.add("y-h1");
+            guided.stage = 2;
+            startAnim(nodes.input[0], nodes.hidden[1], 1200, () => {
+              guided.edgeActive.add("x-h2");
+              guided.stage = 2;
+              startAnim(nodes.input[1], nodes.hidden[1], 1200, () => {
+                guided.edgeActive.add("y-h2");
+                guided.stage = 2;
+                startAnim(nodes.input[0], nodes.hidden[2], 1200, () => {
+                  guided.edgeActive.add("x-h3");
+                  guided.stage = 2;
+                  startAnim(nodes.input[1], nodes.hidden[2], 1200, () => {
+                    guided.edgeActive.add("y-h3");
+                    guided.stage = 3;
+                    renderAll();
+                  });
+                });
+              });
+            });
+          });
+        });
+        renderAll();
+        return;
+      }
+
+      if (guided.stage === 3) {
+        const nodes = {
+          hidden: [
+            { x: network.width * 0.55, y: network.height * 0.25 },
+            { x: network.width * 0.55, y: network.height * 0.5 },
+            { x: network.width * 0.55, y: network.height * 0.75 },
+          ],
+          out: { x: network.width * 0.85, y: network.height * 0.5 },
+        };
+        guided.stage = 4;
+        startAnim(nodes.hidden[0], nodes.out, 1200, () => {
+          guided.edgeActive.add("h1-c");
+          guided.stage = 4;
+          startAnim(nodes.hidden[1], nodes.out, 1200, () => {
+            guided.edgeActive.add("h2-c");
+            guided.stage = 4;
+            startAnim(nodes.hidden[2], nodes.out, 1200, () => {
+              guided.edgeActive.add("h3-c");
+              guided.stage = 5;
+              renderAll();
+            });
+          });
+        });
+        renderAll();
+        return;
+      }
+
+      if (guided.stage === 5) {
+        guided.stage = 6;
+        renderAll();
+        return;
+      }
+
+      if (guided.stage === 6) {
+        const nodes = {
+          input: [
+            { x: network.width * 0.2, y: network.height * 0.25 },
+            { x: network.width * 0.2, y: network.height * 0.5 },
+          ],
+          hidden: [
+            { x: network.width * 0.55, y: network.height * 0.25 },
+            { x: network.width * 0.55, y: network.height * 0.5 },
+            { x: network.width * 0.55, y: network.height * 0.75 },
+          ],
+          out: { x: network.width * 0.85, y: network.height * 0.5 },
+        };
+        guided.stage = 6;
+        highlightPhase = 1;
+        startAnim(nodes.out, nodes.hidden[0], 1200, () => {
+          startAnim(nodes.out, nodes.hidden[1], 1200, () => {
+            startAnim(nodes.out, nodes.hidden[2], 1200, () => {
+              startAnim(nodes.hidden[0], nodes.input[0], 1200, () => {
+                startAnim(nodes.hidden[0], nodes.input[1], 1200, () => {
+                  startAnim(nodes.hidden[1], nodes.input[0], 1200, () => {
+                    startAnim(nodes.hidden[1], nodes.input[1], 1200, () => {
+                      startAnim(nodes.hidden[2], nodes.input[0], 1200, () => {
+                        startAnim(nodes.hidden[2], nodes.input[1], 1200, () => {
+                          applyGuidedUpdate();
+                          guided.stage = 7;
+                          highlightPhase = null;
+                          renderAll();
+                        });
+                      });
+                    });
+                  });
+                });
+              });
+            });
+          });
+        });
+        renderAll();
+        return;
+      }
+
+      if (guided.stage >= 7) {
+        guided = null;
+        renderAll();
+      }
+    }
+
+    document.getElementById("step").addEventListener("click", () => {
+      if (isPlaying) return;
+      advanceGuided();
+    });
+
+    document.getElementById("play").addEventListener("click", (event) => {
+      if (playTimer) {
+        clearInterval(playTimer);
+        playTimer = null;
+        isPlaying = false;
+        event.target.textContent = "Play";
+        renderAll();
+        return;
+      }
+      if (animFrame) cancelAnimationFrame(animFrame);
+      animFrame = null;
+      anim = null;
+      guided = null;
+      highlightPhase = null;
+      statusEl.innerHTML = "<strong>Status</strong> Training...";
+      event.target.textContent = "Pause";
+      isPlaying = true;
+      playTimer = setInterval(() => {
+        trainStep();
+      }, 1000 / stepsPerSecond);
+    });
+
+    document.getElementById("reset").addEventListener("click", () => {
+      weights.w1 = [randn(), randn(), randn()];
+      weights.w2 = [randn(), randn(), randn()];
+      weights.v = [randn(), randn(), randn()];
+      weights.b1 = [0, 0, 0];
+      weights.bout = 0;
+      stepCount = 0;
+      renderAll();
+    });
+
+    document.getElementById("data").addEventListener("click", () => {
+      if (isPlaying) {
+        statusEl.innerHTML = "<strong>Status</strong> Pause training to generate new data.";
+        return;
+      }
+      generateData();
+      stepCount = 0;
+      renderAll();
+    });
+
+    lrEl.addEventListener("input", () => {
+      learningRate = parseFloat(lrEl.value);
+      lrVal.textContent = learningRate.toFixed(2);
+    });
+
+    speedEl.addEventListener("input", () => {
+      stepsPerSecond = parseInt(speedEl.value, 10);
+      speedVal.textContent = stepsPerSecond.toString();
+      if (playTimer) {
+        clearInterval(playTimer);
+        playTimer = setInterval(trainStep, 1000 / stepsPerSecond);
+      }
+    });
+
+    patternEl.addEventListener("change", () => {
+      pattern = patternEl.value;
+      patternVal.textContent = pattern === "corner" ? "Opposite Corners" : "Two Clusters";
+      if (isPlaying) {
+        statusEl.innerHTML = "<strong>Status</strong> Pause training to change data pattern.";
+        patternEl.value = "two";
+        pattern = "two";
+        patternVal.textContent = "Two Clusters";
+        return;
+      }
+      generateData();
+      renderAll();
+    });
+
+    generateData();
+    window.addEventListener("resize", resizeCanvases);
+    resizeCanvases();
+    renderAll();
+  </script>
+</body>
+</html>

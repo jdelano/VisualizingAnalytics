@@ -1,0 +1,508 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Neural Network XOR Explorer</title>
+  <style>
+    :root {
+      --bg: #f6f2e8;
+      --ink: #1a1a1a;
+      --accent: #0e7c86;
+      --accent-2: #d04e16;
+      --grid: #d7d1c4;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "IBM Plex Sans", "Fira Sans", "Trebuchet MS", sans-serif;
+      color: var(--ink);
+      background: radial-gradient(circle at top left, #fff7e6 0%, var(--bg) 45%, #f1eadc 100%);
+    }
+
+    header {
+      padding: 20px 24px 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 22px;
+      letter-spacing: 0.5px;
+    }
+
+    header p {
+      margin: 0;
+      font-size: 13px;
+      opacity: 0.8;
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 330px;
+      gap: 18px;
+      padding: 12px 24px 24px;
+    }
+
+    .card {
+      background: #fff;
+      border: 1px solid #e2dbc9;
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(40, 32, 22, 0.1);
+    }
+
+    #canvasWrap {
+      padding: 16px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 280px;
+      gap: 16px;
+      align-items: start;
+    }
+
+    #decision,
+    #network {
+      width: 100%;
+      height: 420px;
+      display: block;
+      border-radius: 12px;
+      background: linear-gradient(180deg, #fffdf7 0%, #f6f1e6 100%);
+    }
+
+    #network {
+      height: 420px;
+    }
+
+    #panel {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    #panel h2 {
+      margin: 0;
+      font-size: 16px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .metric {
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #f8f4eb;
+      border: 1px solid #e6decf;
+      font-size: 13px;
+    }
+
+    .metric strong {
+      display: block;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      opacity: 0.7;
+      margin-bottom: 4px;
+    }
+
+    .controls {
+      display: grid;
+      gap: 8px;
+    }
+
+    .control {
+      display: grid;
+      gap: 4px;
+      font-size: 12px;
+    }
+
+    .control label {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      font-weight: 600;
+    }
+
+    .control input[type="range"] {
+      width: 100%;
+    }
+
+    .actions {
+      margin-top: auto;
+      display: grid;
+      gap: 8px;
+    }
+
+    button {
+      border: none;
+      padding: 10px 14px;
+      border-radius: 10px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    button.secondary {
+      background: #444;
+    }
+
+    button:active { transform: translateY(1px); }
+
+    .hint {
+      font-size: 12px;
+      opacity: 0.75;
+      line-height: 1.4;
+    }
+
+    @media (max-width: 1100px) {
+      #canvasWrap { grid-template-columns: 1fr; }
+      #decision, #network { height: 360px; }
+    }
+
+    @media (max-width: 900px) {
+      main { grid-template-columns: 1fr; }
+      #panel { order: -1; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Neural Network XOR Explorer</h1>
+    <p>Explore a 2‑2‑1 network on XOR. Adjust weights and watch the decision region update.</p>
+  </header>
+
+  <main>
+    <section id="canvasWrap" class="card">
+      <canvas id="decision" width="600" height="420"></canvas>
+      <canvas id="network" width="280" height="420"></canvas>
+    </section>
+
+    <aside id="panel" class="card">
+      <h2>Network Controls</h2>
+      <div class="metric" id="status">
+        <strong>Status</strong>
+        Click a point to inspect activations.
+      </div>
+      <div class="metric" id="activations">
+        <strong>Activations</strong>
+        h1: —<br />
+        h2: —<br />
+        out: —
+      </div>
+      <div class="metric" id="metrics">
+        <strong>Metrics</strong>
+        Loss: —<br />
+        Accuracy: —
+      </div>
+      <div class="controls" id="sliders"></div>
+      <p class="hint">Weights map inputs to hidden units, then to the output. Edge thickness reflects |weight|.</p>
+      <div class="actions">
+        <button id="random">Randomize Weights</button>
+        <button id="reset" class="secondary">Reset to XOR</button>
+        <button id="animate" class="secondary">Animate Forward Pass</button>
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    const decision = document.getElementById("decision");
+    const dctx = decision.getContext("2d");
+    const network = document.getElementById("network");
+    const nctx = network.getContext("2d");
+
+    const statusEl = document.getElementById("status");
+    const activationsEl = document.getElementById("activations");
+    const metricsEl = document.getElementById("metrics");
+    const slidersEl = document.getElementById("sliders");
+
+    const dataset = [
+      { x: 0, y: 0, label: 0 },
+      { x: 0, y: 1, label: 1 },
+      { x: 1, y: 0, label: 1 },
+      { x: 1, y: 1, label: 0 },
+    ];
+
+    const config = {
+      w11: 10, w12: 10, b1: -15,
+      w21: 10, w22: 10, b2: -5,
+      v1: -10, v2: 10, bout: -5,
+    };
+
+    const sliderSpec = [
+      { key: "w11", label: "w11 (x1→h1)" },
+      { key: "w12", label: "w12 (x2→h1)" },
+      { key: "b1", label: "b1" },
+      { key: "w21", label: "w21 (x1→h2)" },
+      { key: "w22", label: "w22 (x2→h2)" },
+      { key: "b2", label: "b2" },
+      { key: "v1", label: "v1 (h1→out)" },
+      { key: "v2", label: "v2 (h2→out)" },
+      { key: "bout", label: "bout" },
+    ];
+
+    let selected = dataset[0];
+    let highlightPhase = null;
+
+    function sigmoid(z) {
+      return 1 / (1 + Math.exp(-z));
+    }
+
+    function forward(x1, x2) {
+      const z1 = config.w11 * x1 + config.w12 * x2 + config.b1;
+      const z2 = config.w21 * x1 + config.w22 * x2 + config.b2;
+      const h1 = sigmoid(z1);
+      const h2 = sigmoid(z2);
+      const zout = config.v1 * h1 + config.v2 * h2 + config.bout;
+      const out = sigmoid(zout);
+      return { z1, z2, h1, h2, zout, out };
+    }
+
+    function computeMetrics() {
+      let loss = 0;
+      let correct = 0;
+      for (const pt of dataset) {
+        const { out } = forward(pt.x, pt.y);
+        loss += pt.label * Math.log(out + 1e-9) + (1 - pt.label) * Math.log(1 - out + 1e-9);
+        const pred = out >= 0.5 ? 1 : 0;
+        if (pred === pt.label) correct++;
+      }
+      return { loss: -loss / dataset.length, acc: correct / dataset.length };
+    }
+
+    function renderDecision() {
+      const w = decision.width;
+      const h = decision.height;
+      const image = dctx.createImageData(w, h);
+      for (let y = 0; y < h; y += 3) {
+        for (let x = 0; x < w; x += 3) {
+          const nx = x / w;
+          const ny = 1 - y / h;
+          const { out } = forward(nx, ny);
+          const idx = (y * w + x) * 4;
+          const r = Math.round(208 * out + 40 * (1 - out));
+          const g = Math.round(90 * out + 150 * (1 - out));
+          const b = Math.round(95 * out + 200 * (1 - out));
+          for (let dy = 0; dy < 3; dy++) {
+            for (let dx = 0; dx < 3; dx++) {
+              const xx = x + dx;
+              const yy = y + dy;
+              if (xx >= w || yy >= h) continue;
+              const i = (yy * w + xx) * 4;
+              image.data[i] = r;
+              image.data[i + 1] = g;
+              image.data[i + 2] = b;
+              image.data[i + 3] = 255;
+            }
+          }
+        }
+      }
+      dctx.putImageData(image, 0, 0);
+
+      dctx.strokeStyle = "rgba(0,0,0,0.2)";
+      dctx.lineWidth = 1;
+      dctx.strokeRect(0, 0, w, h);
+
+      for (const pt of dataset) {
+        const cx = pt.x * w;
+        const cy = (1 - pt.y) * h;
+        dctx.beginPath();
+        dctx.fillStyle = pt.label === 1 ? "#0e7c86" : "#d04e16";
+        dctx.strokeStyle = "#1a1a1a";
+        dctx.lineWidth = pt === selected ? 2.5 : 1;
+        dctx.arc(cx, cy, pt === selected ? 8 : 6, 0, Math.PI * 2);
+        dctx.fill();
+        dctx.stroke();
+      }
+    }
+
+    function weightColor(val) {
+      return val >= 0 ? "#0e7c86" : "#d04e16";
+    }
+
+    function weightWidth(val) {
+      return 1 + Math.min(4, Math.abs(val) / 4);
+    }
+
+    function renderNetwork() {
+      nctx.clearRect(0, 0, network.width, network.height);
+      const w = network.width;
+      const h = network.height;
+
+      const nodes = {
+        input: [
+          { x: w * 0.2, y: h * 0.25 },
+          { x: w * 0.2, y: h * 0.5 },
+          { x: w * 0.2, y: h * 0.75 },
+        ],
+        hidden: [
+          { x: w * 0.55, y: h * 0.35 },
+          { x: w * 0.55, y: h * 0.65 },
+        ],
+        out: [{ x: w * 0.85, y: h * 0.5 }],
+      };
+
+      const weights = [
+        { from: 0, to: 0, val: config.w11 },
+        { from: 1, to: 0, val: config.w12 },
+        { from: 0, to: 1, val: config.w21 },
+        { from: 1, to: 1, val: config.w22 },
+      ];
+
+      const highlightEdges = highlightPhase === 0 ? "input" : highlightPhase === 1 ? "hidden" : null;
+
+      for (const edge of weights) {
+        const from = nodes.input[edge.from];
+        const to = nodes.hidden[edge.to];
+        nctx.strokeStyle = weightColor(edge.val);
+        nctx.lineWidth = weightWidth(edge.val);
+        if (highlightEdges === "input") nctx.lineWidth += 1.5;
+        nctx.beginPath();
+        nctx.moveTo(from.x, from.y);
+        nctx.lineTo(to.x, to.y);
+        nctx.stroke();
+      }
+
+      const outEdges = [
+        { from: 0, to: 0, val: config.v1 },
+        { from: 1, to: 0, val: config.v2 },
+      ];
+
+      for (const edge of outEdges) {
+        const from = nodes.hidden[edge.from];
+        const to = nodes.out[edge.to];
+        nctx.strokeStyle = weightColor(edge.val);
+        nctx.lineWidth = weightWidth(edge.val);
+        if (highlightEdges === "hidden") nctx.lineWidth += 1.5;
+        nctx.beginPath();
+        nctx.moveTo(from.x, from.y);
+        nctx.lineTo(to.x, to.y);
+        nctx.stroke();
+      }
+
+      function drawNode(node, label, filled) {
+        nctx.beginPath();
+        nctx.fillStyle = filled ? "#f5efe1" : "#fff";
+        nctx.strokeStyle = "#1a1a1a";
+        nctx.lineWidth = 1.5;
+        nctx.arc(node.x, node.y, 16, 0, Math.PI * 2);
+        nctx.fill();
+        nctx.stroke();
+        nctx.fillStyle = "#1a1a1a";
+        nctx.font = "12px 'IBM Plex Sans', sans-serif";
+        nctx.textAlign = "center";
+        nctx.textBaseline = "middle";
+        nctx.fillText(label, node.x, node.y);
+      }
+
+      nodes.input.forEach((n, i) => drawNode(n, `x${i + 1}`, highlightPhase === 0));
+      nodes.hidden.forEach((n, i) => drawNode(n, `h${i + 1}`, highlightPhase === 1));
+      nodes.out.forEach((n) => drawNode(n, "y", highlightPhase === 2));
+    }
+
+    function updatePanel() {
+      const { z1, z2, h1, h2, out } = forward(selected.x, selected.y);
+      activationsEl.innerHTML = `<strong>Activations</strong> h1: ${h1.toFixed(2)}<br />h2: ${h2.toFixed(2)}<br />out: ${out.toFixed(2)}`;
+      statusEl.innerHTML = `<strong>Status</strong> Selected point (${selected.x}, ${selected.y}) → class ${selected.label}`;
+
+      const { loss, acc } = computeMetrics();
+      metricsEl.innerHTML = `<strong>Metrics</strong> Loss: ${loss.toFixed(3)}<br />Accuracy: ${(acc * 100).toFixed(1)}%`;
+    }
+
+    function buildSliders() {
+      slidersEl.innerHTML = "";
+      sliderSpec.forEach((spec) => {
+        const wrapper = document.createElement("div");
+        wrapper.className = "control";
+        const label = document.createElement("label");
+        const span = document.createElement("span");
+        span.textContent = spec.label;
+        const value = document.createElement("span");
+        value.id = `val-${spec.key}`;
+        label.append(span, value);
+        const input = document.createElement("input");
+        input.type = "range";
+        input.min = "-15";
+        input.max = "15";
+        input.step = "0.5";
+        input.value = config[spec.key];
+        value.textContent = config[spec.key].toFixed(1);
+        input.addEventListener("input", () => {
+          config[spec.key] = parseFloat(input.value);
+          value.textContent = config[spec.key].toFixed(1);
+          renderAll();
+        });
+        wrapper.append(label, input);
+        slidersEl.appendChild(wrapper);
+      });
+    }
+
+    function renderAll() {
+      renderDecision();
+      renderNetwork();
+      updatePanel();
+    }
+
+    decision.addEventListener("click", (event) => {
+      const rect = decision.getBoundingClientRect();
+      const x = (event.clientX - rect.left) / rect.width;
+      const y = 1 - (event.clientY - rect.top) / rect.height;
+      let closest = dataset[0];
+      let best = Infinity;
+      for (const pt of dataset) {
+        const dx = pt.x - x;
+        const dy = pt.y - y;
+        const dist = Math.hypot(dx, dy);
+        if (dist < best) {
+          best = dist;
+          closest = pt;
+        }
+      }
+      selected = closest;
+      renderAll();
+    });
+
+    document.getElementById("random").addEventListener("click", () => {
+      for (const key of Object.keys(config)) {
+        config[key] = Math.round((Math.random() * 30 - 15) * 2) / 2;
+      }
+      buildSliders();
+      renderAll();
+    });
+
+    document.getElementById("reset").addEventListener("click", () => {
+      Object.assign(config, {
+        w11: 10, w12: 10, b1: -15,
+        w21: 10, w22: 10, b2: -5,
+        v1: -10, v2: 10, bout: -5,
+      });
+      buildSliders();
+      renderAll();
+    });
+
+    document.getElementById("animate").addEventListener("click", () => {
+      highlightPhase = 0;
+      renderNetwork();
+      setTimeout(() => {
+        highlightPhase = 1;
+        renderNetwork();
+      }, 250);
+      setTimeout(() => {
+        highlightPhase = 2;
+        renderNetwork();
+      }, 500);
+      setTimeout(() => {
+        highlightPhase = null;
+        renderNetwork();
+      }, 800);
+    });
+
+    buildSliders();
+    renderAll();
+  </script>
+</body>
+</html>
