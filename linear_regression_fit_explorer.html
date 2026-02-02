@@ -1,0 +1,473 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Linear Regression Fit Explorer</title>
+  <style>
+    :root {
+      --bg: #f6f2e8;
+      --ink: #1a1a1a;
+      --accent: #0e7c86;
+      --accent-2: #d04e16;
+      --grid: #d7d1c4;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "IBM Plex Sans", "Fira Sans", "Trebuchet MS", sans-serif;
+      color: var(--ink);
+      background: radial-gradient(circle at top left, #fff7e6 0%, var(--bg) 45%, #f1eadc 100%);
+    }
+
+    header {
+      padding: 20px 24px 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 22px;
+      letter-spacing: 0.5px;
+    }
+
+    header p {
+      margin: 0;
+      font-size: 13px;
+      opacity: 0.8;
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 280px;
+      gap: 18px;
+      padding: 12px 24px 24px;
+    }
+
+    .card {
+      background: #fff;
+      border: 1px solid #e2dbc9;
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(40, 32, 22, 0.1);
+    }
+
+    #canvasWrap {
+      padding: 16px;
+    }
+
+    #chart {
+      width: 100%;
+      height: 520px;
+      display: block;
+      border-radius: 12px;
+      background: linear-gradient(180deg, #fffdf7 0%, #f6f1e6 100%);
+    }
+
+    #panel {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    #panel h2 {
+      margin: 0;
+      font-size: 16px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .metric {
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #f8f4eb;
+      border: 1px solid #e6decf;
+      font-size: 13px;
+    }
+
+    .metric strong {
+      display: block;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      opacity: 0.7;
+      margin-bottom: 4px;
+    }
+
+    .actions {
+      margin-top: auto;
+      display: grid;
+      gap: 8px;
+    }
+
+    button {
+      border: none;
+      padding: 10px 14px;
+      border-radius: 10px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    button.secondary {
+      background: #444;
+    }
+
+    button:active { transform: translateY(1px); }
+
+    .hint {
+      font-size: 12px;
+      opacity: 0.75;
+      line-height: 1.4;
+    }
+
+    @media (max-width: 900px) {
+      main { grid-template-columns: 1fr; }
+      #panel { order: -1; }
+      #chart { height: 420px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Linear Regression Fit Explorer</h1>
+    <p>Click to add points. The least‑squares line and fit metrics update live.</p>
+  </header>
+
+  <main>
+    <section id="canvasWrap" class="card">
+      <canvas id="chart" width="900" height="520"></canvas>
+    </section>
+
+    <aside id="panel" class="card">
+      <h2>Model Metrics</h2>
+      <div class="metric" id="status">
+        <strong>Status</strong>
+        Waiting for data…
+      </div>
+      <div class="metric" id="coeffs">
+        <strong>Coefficients</strong>
+        b<sub>0</sub>: —<br />
+        b<sub>1</sub>: —
+      </div>
+      <div class="metric" id="stats">
+        <strong>Fit</strong>
+        MSE: —<br />
+        R<sup>2</sup>: —
+      </div>
+      <div class="metric" id="formula">
+        <strong>Formula</strong>
+        <span class="mathline">
+          <span style="font-family:'Times New Roman', serif;">y = b<sub>0</sub> + b<sub>1</sub>x</span>
+        </span>
+      </div>
+      <p class="hint">x and y snap to whole numbers between 0 and 100.</p>
+      <div class="actions">
+        <button id="reset">Reset</button>
+        <button id="random" class="secondary">Add Random Points</button>
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    const canvas = document.getElementById("chart");
+    const ctx = canvas.getContext("2d");
+
+    const statusEl = document.getElementById("status");
+    const coeffsEl = document.getElementById("coeffs");
+    const statsEl = document.getElementById("stats");
+
+    const padding = { left: 60, right: 30, top: 30, bottom: 50 };
+    const xMax = 100;
+    const yMin = 0;
+    const yMax = 100;
+
+    const points = [];
+    let model = null;
+    let logicalWidth = canvas.width;
+    let logicalHeight = canvas.height;
+    let draggingIndex = null;
+    let ignoreClick = false;
+
+    function toCanvasX(x) {
+      const w = logicalWidth - padding.left - padding.right;
+      return padding.left + (x / xMax) * w;
+    }
+
+    function toCanvasY(y) {
+      const h = logicalHeight - padding.top - padding.bottom;
+      return logicalHeight - padding.bottom - ((y - yMin) / (yMax - yMin)) * h;
+    }
+
+    function fromCanvas(ptX, ptY) {
+      const w = logicalWidth - padding.left - padding.right;
+      const h = logicalHeight - padding.top - padding.bottom;
+      const x = ((ptX - padding.left) / w) * xMax;
+      const y = yMin + ((logicalHeight - padding.bottom - ptY) / h) * (yMax - yMin);
+      return { x, y };
+    }
+
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      const ratio = window.devicePixelRatio || 1;
+      logicalWidth = Math.round(rect.width);
+      logicalHeight = Math.round(rect.height);
+      const width = Math.round(logicalWidth * ratio);
+      const height = Math.round(logicalHeight * ratio);
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+      }
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      render();
+    }
+
+    function drawAxes() {
+      ctx.clearRect(0, 0, logicalWidth, logicalHeight);
+
+      ctx.strokeStyle = "#cfc7b5";
+      ctx.lineWidth = 1;
+
+      for (let i = 0; i <= 10; i++) {
+        const x = toCanvasX((xMax / 10) * i);
+        ctx.beginPath();
+        ctx.moveTo(x, padding.top);
+        ctx.lineTo(x, logicalHeight - padding.bottom);
+        ctx.stroke();
+      }
+
+      for (let j = 0; j <= 10; j++) {
+        const y = toCanvasY((yMax / 10) * j);
+        ctx.beginPath();
+        ctx.moveTo(padding.left, y);
+        ctx.lineTo(logicalWidth - padding.right, y);
+        ctx.stroke();
+      }
+
+      ctx.strokeStyle = "#3c362c";
+      ctx.lineWidth = 2;
+
+      ctx.beginPath();
+      ctx.moveTo(padding.left, padding.top);
+      ctx.lineTo(padding.left, logicalHeight - padding.bottom);
+      ctx.lineTo(logicalWidth - padding.right, logicalHeight - padding.bottom);
+      ctx.stroke();
+
+      ctx.fillStyle = "#3c362c";
+      ctx.font = "12px 'IBM Plex Sans', sans-serif";
+      ctx.textAlign = "center";
+
+      for (let i = 0; i <= 10; i++) {
+        const x = (xMax / 10) * i;
+        ctx.fillText(x.toString(), toCanvasX(x), logicalHeight - padding.bottom + 18);
+      }
+
+      ctx.textAlign = "right";
+      for (let j = 0; j <= 10; j++) {
+        const y = (yMax / 10) * j;
+        ctx.fillText(y.toString(), padding.left - 8, toCanvasY(y) + 4);
+      }
+
+      ctx.save();
+      ctx.translate(18, logicalHeight / 2);
+      ctx.rotate(-Math.PI / 2);
+      ctx.textAlign = "center";
+      ctx.fillText("y", 0, 0);
+      ctx.restore();
+
+      ctx.textAlign = "center";
+      ctx.fillText("x", (padding.left + logicalWidth - padding.right) / 2, logicalHeight - 10);
+    }
+
+    function drawPoints() {
+      for (const pt of points) {
+        const cx = toCanvasX(pt.x);
+        const cy = toCanvasY(pt.y);
+        ctx.beginPath();
+        ctx.fillStyle = "#d04e16";
+        ctx.strokeStyle = "#1a1a1a";
+        ctx.lineWidth = 1;
+        ctx.arc(cx, cy, 5.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      }
+    }
+
+    function drawLine() {
+      if (!model) return;
+      const x0 = 0;
+      const y0 = model.b0 + model.b1 * x0;
+      const x1 = xMax;
+      const y1 = model.b0 + model.b1 * x1;
+      ctx.strokeStyle = "#0e7c86";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(toCanvasX(x0), toCanvasY(y0));
+      ctx.lineTo(toCanvasX(x1), toCanvasY(y1));
+      ctx.stroke();
+    }
+
+    function render() {
+      drawAxes();
+      drawPoints();
+      drawLine();
+    }
+
+    function updatePanel() {
+      if (!model) {
+        statusEl.innerHTML = "<strong>Status</strong> Add at least two points.";
+        coeffsEl.innerHTML = "<strong>Coefficients</strong> b<sub>0</sub>: —<br />b<sub>1</sub>: —";
+        statsEl.innerHTML = "<strong>Fit</strong> MSE: —<br />R<sup>2</sup>: —";
+        return;
+      }
+
+      statusEl.innerHTML = `<strong>Status</strong> Trained on ${points.length} points.`;
+      coeffsEl.innerHTML = `<strong>Coefficients</strong> b<sub>0</sub>: ${model.b0.toFixed(2)}<br />b<sub>1</sub>: ${model.b1.toFixed(2)}`;
+      statsEl.innerHTML = `<strong>Fit</strong> MSE: ${model.mse.toFixed(2)}<br />R<sup>2</sup>: ${model.r2.toFixed(3)}`;
+    }
+
+    function trainLinearRegression(data) {
+      const n = data.length;
+      const meanX = data.reduce((s, d) => s + d.x, 0) / n;
+      const meanY = data.reduce((s, d) => s + d.y, 0) / n;
+
+      let num = 0;
+      let den = 0;
+      for (const d of data) {
+        num += (d.x - meanX) * (d.y - meanY);
+        den += (d.x - meanX) ** 2;
+      }
+
+      const b1 = den === 0 ? 0 : num / den;
+      const b0 = meanY - b1 * meanX;
+
+      let sse = 0;
+      let sst = 0;
+      for (const d of data) {
+        const pred = b0 + b1 * d.x;
+        sse += (d.y - pred) ** 2;
+        sst += (d.y - meanY) ** 2;
+      }
+
+      const mse = sse / n;
+      const r2 = sst === 0 ? 0 : 1 - sse / sst;
+
+      return { b0, b1, mse, r2 };
+    }
+
+    function maybeTrain() {
+      if (points.length < 2) {
+        model = null;
+        updatePanel();
+        render();
+        return;
+      }
+      model = trainLinearRegression(points);
+      updatePanel();
+      render();
+    }
+
+    function addPoint(pt) {
+      points.push(pt);
+      maybeTrain();
+    }
+
+    function getSnappedPointFromEvent(event) {
+      const rect = canvas.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+
+      if (
+        x < padding.left ||
+        x > logicalWidth - padding.right ||
+        y < padding.top ||
+        y > logicalHeight - padding.bottom
+      ) {
+        return null;
+      }
+
+      const raw = fromCanvas(x, y);
+      const snappedX = Math.max(0, Math.min(xMax, Math.round(raw.x)));
+      const snappedY = Math.max(yMin, Math.min(yMax, Math.round(raw.y)));
+      return { x: snappedX, y: snappedY };
+    }
+
+    canvas.addEventListener("mousedown", (event) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+
+      let closest = -1;
+      let bestDist = Infinity;
+      for (let i = 0; i < points.length; i++) {
+        const cx = toCanvasX(points[i].x);
+        const cy = toCanvasY(points[i].y);
+        const dx = x - cx;
+        const dy = y - cy;
+        const dist = Math.hypot(dx, dy);
+        if (dist < bestDist) {
+          bestDist = dist;
+          closest = i;
+        }
+      }
+      if (closest !== -1 && bestDist <= 10) {
+        draggingIndex = closest;
+        ignoreClick = true;
+      }
+    });
+
+    canvas.addEventListener("mousemove", (event) => {
+      if (draggingIndex === null) return;
+      const snapped = getSnappedPointFromEvent(event);
+      if (!snapped) return;
+      points[draggingIndex] = snapped;
+      maybeTrain();
+    });
+
+    canvas.addEventListener("mouseup", () => {
+      draggingIndex = null;
+    });
+
+    canvas.addEventListener("mouseleave", () => {
+      draggingIndex = null;
+    });
+
+    canvas.addEventListener("click", (event) => {
+      if (ignoreClick) {
+        ignoreClick = false;
+        return;
+      }
+      const snapped = getSnappedPointFromEvent(event);
+      if (!snapped) return;
+      addPoint(snapped);
+    });
+
+    document.getElementById("reset").addEventListener("click", () => {
+      points.splice(0, points.length);
+      model = null;
+      updatePanel();
+      render();
+    });
+
+    document.getElementById("random").addEventListener("click", () => {
+      for (let i = 0; i < 6; i++) {
+        addPoint({
+          x: Math.floor(Math.random() * (xMax + 1)),
+          y: Math.floor(Math.random() * (yMax + 1)),
+        });
+      }
+    });
+
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
+    updatePanel();
+  </script>
+</body>
+</html>

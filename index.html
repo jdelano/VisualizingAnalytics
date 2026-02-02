@@ -352,8 +352,8 @@
         <span>ITM 4150</span>
       </div>
       <div class="menu">
-        <a href="#classification">Classification</a>
         <a href="#regression">Regression</a>
+        <a href="#classification">Classification</a>
         <a href="#neural">Neural Networks</a>
         <a href="#clustering">Clustering</a>
         <a href="#explore">About</a>
@@ -408,13 +408,58 @@
     </div>
   </section>
 
-  <section class="section" id="classification">
+  <section class="section" id="regression">
+    <h3>Regression</h3>
+    <div class="grid">
+      <div class="card card-split">
+        <div class="card-left">
+          <div class="card-text">
+            <span class="pill">Linear Regression</span>
+            <h4>Linear Fit Explorer</h4>
+            <p>Drag points and compare least‑squares vs. robust fits with instant residual updates.</p>
+            <a href="linear_regression_fit_explorer.html">Launch simulation →</a>
+          </div>
+          <div class="card-media">
+            <svg viewBox="8 8 104 74" aria-hidden="true">
+              <rect x="8" y="8" width="104" height="74" rx="8" fill="none" stroke="none"/>
+            <g transform="translate(-6 -4) scale(1.15)">
+              <line x1="18" y1="70" x2="102" y2="26" stroke="#0e7c86" stroke-width="2"/>
+              <g fill="#d04e16" stroke="#1f1c18" stroke-width="0.6">
+                <circle cx="24" cy="62" r="3"/>
+                <circle cx="36" cy="58" r="3"/>
+                <circle cx="46" cy="54" r="3"/>
+                <circle cx="58" cy="50" r="3"/>
+                <circle cx="72" cy="44" r="3"/>
+                <circle cx="84" cy="38" r="3"/>
+              </g>
+            </g>
+          </svg>
+          </div>
+        </div>
+        <div class="card-detail">
+          <div><strong>What you'll see</strong><br />Residuals expand/contract as the line rotates.</div>
+          <div><strong>Try this</strong><br />Drag an outlier and watch fit sensitivity.</div>
+          <div><strong>Tags</strong>
+            <div class="tag-row">
+              <span class="tag">Slope</span>
+              <span class="tag">Residuals</span>
+              <span class="tag">Outliers</span>
+            </div>
+          </div>
+          <div><strong>Metrics</strong><br />MSE • R²</div>
+          <div><strong>Equation</strong><br /><span class="equation">y = β0 + β1x</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+<section class="section" id="classification">
     <h3>Classification</h3>
     <div class="section-stack">
       <div class="card card-split">
         <div class="card-left">
           <div class="card-text">
-            <span class="pill">SVM</span>
+            <span class="pill">Support Vector Machine</span>
             <h4>Margin Slider</h4>
             <p>Adjust the soft‑margin strength and watch the boundary shift while support vectors update in real time.</p>
             <a href="support_vector_game.html">Launch simulation →</a>
@@ -463,7 +508,7 @@
       <div class="card card-split">
         <div class="card-left">
           <div class="card-text">
-            <span class="pill">Logistic</span>
+            <span class="pill">Logistic Regression</span>
             <h4>Curve Builder</h4>
             <p>Place binary points, fit a logistic curve, and explore how cutoff probability changes misclassifications.</p>
             <a href="logistic_regression_sim.html">Launch simulation →</a>
@@ -504,49 +549,7 @@
     </div>
   </section>
 
-  <section class="section" id="regression">
-    <h3>Regression</h3>
-    <div class="grid">
-      <div class="card card-split">
-        <div class="card-left">
-          <div class="card-text">
-            <span class="pill">Coming soon</span>
-            <h4>Linear Fit Explorer</h4>
-            <p>Drag points and compare least‑squares vs. robust fits with instant residual updates.</p>
-          </div>
-          <div class="card-media">
-            <svg viewBox="8 8 104 74" aria-hidden="true">
-              <rect x="8" y="8" width="104" height="74" rx="8" fill="none" stroke="none"/>
-            <g transform="translate(-6 -4) scale(1.15)">
-              <line x1="18" y1="70" x2="102" y2="26" stroke="#0e7c86" stroke-width="2"/>
-              <g fill="#d04e16" stroke="#1f1c18" stroke-width="0.6">
-                <circle cx="24" cy="62" r="3"/>
-                <circle cx="36" cy="58" r="3"/>
-                <circle cx="46" cy="54" r="3"/>
-                <circle cx="58" cy="50" r="3"/>
-                <circle cx="72" cy="44" r="3"/>
-                <circle cx="84" cy="38" r="3"/>
-              </g>
-            </g>
-          </svg>
-          </div>
-        </div>
-        <div class="card-detail">
-          <div><strong>What you'll see</strong><br />Residuals expand/contract as the line rotates.</div>
-          <div><strong>Try this</strong><br />Drag an outlier and watch fit sensitivity.</div>
-          <div><strong>Tags</strong>
-            <div class="tag-row">
-              <span class="tag">Slope</span>
-              <span class="tag">Residuals</span>
-              <span class="tag">Outliers</span>
-            </div>
-          </div>
-          <div><strong>Metrics</strong><br />MSE • R²</div>
-          <div><strong>Equation</strong><br /><span class="equation">y = β0 + β1x</span></div>
-        </div>
-      </div>
-    </div>
-  </section>
+  
 
   <section class="section" id="neural">
     <h3>Neural Networks</h3>
