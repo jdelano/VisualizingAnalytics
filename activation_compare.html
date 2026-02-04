@@ -1,0 +1,531 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Activation Functions Compare</title>
+  <style>
+    :root {
+      --bg: #f6f2e8;
+      --ink: #1a1a1a;
+      --accent: #2b5dff;
+      --accent-2: #d04e16;
+      --grid: #d7d1c4;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "IBM Plex Sans", "Fira Sans", "Trebuchet MS", sans-serif;
+      color: var(--ink);
+      background: radial-gradient(circle at top left, #fff7e6 0%, var(--bg) 45%, #f1eadc 100%);
+    }
+
+    header {
+      padding: 20px 24px 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 22px;
+      letter-spacing: 0.5px;
+    }
+
+    header p {
+      margin: 0;
+      font-size: 13px;
+      opacity: 0.8;
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 320px;
+      gap: 18px;
+      padding: 12px 24px 24px;
+    }
+
+    .card {
+      background: #fff;
+      border: 1px solid #e2dbc9;
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(40, 32, 22, 0.1);
+    }
+
+    #canvasWrap {
+      padding: 16px;
+    }
+
+    #plot {
+      width: 100%;
+      height: 420px;
+      display: block;
+      border-radius: 12px;
+      background: linear-gradient(180deg, #fffdf7 0%, #f6f1e6 100%);
+    }
+
+    #panel {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    #panel h2 {
+      margin: 0;
+      font-size: 16px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .metric {
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #f8f4eb;
+      border: 1px solid #e6decf;
+      font-size: 13px;
+    }
+
+    .metric strong {
+      display: block;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      opacity: 0.7;
+      margin-bottom: 4px;
+    }
+
+    .controls {
+      display: grid;
+      gap: 8px;
+    }
+
+    .control {
+      display: grid;
+      gap: 4px;
+      font-size: 12px;
+    }
+
+    .control label {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      font-weight: 600;
+    }
+
+    .control input[type="range"] {
+      width: 100%;
+    }
+
+    .options {
+      display: grid;
+      gap: 6px;
+      font-size: 12px;
+    }
+
+    .options label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .actions {
+      margin-top: auto;
+      display: grid;
+      gap: 8px;
+    }
+
+    button {
+      border: none;
+      padding: 10px 14px;
+      border-radius: 10px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    button.secondary {
+      background: #444;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+
+    button:active { transform: translateY(1px); }
+
+    .hint {
+      font-size: 12px;
+      opacity: 0.75;
+      line-height: 1.4;
+    }
+
+    @media (max-width: 900px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+      #panel { order: -1; }
+      #plot { height: 360px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Activation Function Studio</h1>
+    <p>Compare sigmoid and ReLU responses as you move w * x + b.</p>
+  </header>
+
+  <main>
+    <section id="canvasWrap" class="card">
+      <canvas id="plot" width="900" height="420"></canvas>
+    </section>
+
+    <aside id="panel" class="card">
+      <h2>Controls</h2>
+      <div class="controls">
+        <div class="control">
+          <label for="x">Input x <span id="xVal">1.0</span></label>
+          <input id="x" type="range" min="-5" max="5" step="0.01" value="1" />
+        </div>
+        <div class="control">
+          <label for="w">Weight w <span id="wVal">1.0</span></label>
+          <input id="w" type="range" min="-3" max="3" step="0.01" value="1" />
+        </div>
+        <div class="control">
+          <label for="b">Bias b <span id="bVal">0.0</span></label>
+          <input id="b" type="range" min="-6" max="6" step="0.01" value="0" />
+        </div>
+      </div>
+
+      <div class="options">
+        <label><input id="showGrad" type="checkbox" checked /> Show derivative (slope)</label>
+        <label><input id="animateSweep" type="checkbox" /> Auto-sweep x</label>
+      </div>
+
+      <div class="metric">
+        <strong>Outputs</strong>
+        pre-activation z = w * x + b: <span id="zVal">1.0</span><br />
+        sigmoid(z): <span id="sigVal">0.731</span><br />
+        ReLU(z): <span id="reluVal">1.000</span>
+      </div>
+
+      <p class="hint">Tip: toggle auto-sweep to watch the point move. Adjust w and b to see dead-ReLU regions.</p>
+
+      <div class="actions">
+        <button id="play">Play</button>
+        <button id="pause" class="secondary" disabled>Pause</button>
+        <button id="step" class="secondary">Step</button>
+      </div>
+    </aside>
+  </main>
+
+<script>
+  function sigmoid(z) { return 1 / (1 + Math.exp(-z)); }
+  function dsigmoid(z) { const s = sigmoid(z); return s * (1 - s); }
+  function relu(z) { return Math.max(0, z); }
+  function drelu(z) { return (z > 0) ? 1 : 0; }
+
+  const xSlider = document.getElementById("x");
+  const wSlider = document.getElementById("w");
+  const bSlider = document.getElementById("b");
+  const xVal = document.getElementById("xVal");
+  const wVal = document.getElementById("wVal");
+  const bVal = document.getElementById("bVal");
+  const zVal = document.getElementById("zVal");
+  const sigVal = document.getElementById("sigVal");
+  const reluVal = document.getElementById("reluVal");
+  const playBtn = document.getElementById("play");
+  const pauseBtn = document.getElementById("pause");
+  const stepBtn = document.getElementById("step");
+  const showGrad = document.getElementById("showGrad");
+  const animateSweep = document.getElementById("animateSweep");
+
+  const canvas = document.getElementById("plot");
+  const ctx = canvas.getContext("2d");
+
+  const margin = { left: 60, right: 30, top: 26, bottom: 50 };
+  const zMin = -6;
+  const zMax = 6;
+  const sigmoidColor = "#2b5dff";
+  const reluColor = "#d04e16";
+
+  let logicalWidth = canvas.width;
+  let logicalHeight = canvas.height;
+
+  function resizeCanvas() {
+    const rect = canvas.getBoundingClientRect();
+    const ratio = window.devicePixelRatio || 1;
+    logicalWidth = Math.round(rect.width);
+    logicalHeight = Math.round(rect.height);
+    const width = Math.round(logicalWidth * ratio);
+    const height = Math.round(logicalHeight * ratio);
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width;
+      canvas.height = height;
+    }
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    updateUI();
+  }
+
+  function plotDims() {
+    const plotW = logicalWidth - margin.left - margin.right;
+    const plotH = logicalHeight - margin.top - margin.bottom;
+    return { plotW, plotH };
+  }
+
+  function mapZtoX(z) {
+    const { plotW } = plotDims();
+    return margin.left + ((z - zMin) / (zMax - zMin)) * plotW;
+  }
+
+  function mapYtoPlot(y) {
+    const { plotH } = plotDims();
+    return margin.top + (1 - y) * plotH;
+  }
+
+  function drawAxes() {
+    ctx.clearRect(0, 0, logicalWidth, logicalHeight);
+    const { plotW, plotH } = plotDims();
+
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(margin.left, margin.top, plotW, plotH);
+
+    ctx.strokeStyle = "#e3dac9";
+    ctx.lineWidth = 1;
+    for (let z = -6; z <= 6; z += 1) {
+      const x = Math.round(mapZtoX(z)) + 0.5;
+      ctx.beginPath();
+      ctx.moveTo(x, margin.top);
+      ctx.lineTo(x, margin.top + plotH);
+      ctx.stroke();
+    }
+
+    ctx.strokeStyle = "#3c362c";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(margin.left, margin.top + plotH / 2);
+    ctx.lineTo(margin.left + plotW, margin.top + plotH / 2);
+    ctx.stroke();
+
+    ctx.fillStyle = "#3c362c";
+    ctx.font = "12px IBM Plex Sans, Fira Sans, Trebuchet MS, sans-serif";
+    for (let z = -6; z <= 6; z += 2) {
+      const x = mapZtoX(z);
+      ctx.fillText(z.toString(), x - 8, margin.top + plotH + 18);
+    }
+    ctx.fillText("pre-activation z", margin.left + plotW / 2 - 50, logicalHeight - 8);
+
+    ctx.fillText("activation", 8, margin.top + 12);
+    ctx.fillText("1", 16, margin.top + 10);
+    ctx.fillText("0", 16, margin.top + plotH + 6);
+  }
+
+  function drawCurves() {
+    const { plotW } = plotDims();
+    ctx.lineWidth = 2.2;
+
+    ctx.strokeStyle = sigmoidColor;
+    ctx.beginPath();
+    for (let px = 0; px <= plotW; px++) {
+      const z = zMin + (px / plotW) * (zMax - zMin);
+      const y = sigmoid(z);
+      const cx = margin.left + px;
+      const cy = mapYtoPlot(y);
+      if (px === 0) ctx.moveTo(cx, cy); else ctx.lineTo(cx, cy);
+    }
+    ctx.stroke();
+
+    ctx.strokeStyle = reluColor;
+    ctx.beginPath();
+    for (let px = 0; px <= plotW; px++) {
+      const z = zMin + (px / plotW) * (zMax - zMin);
+      let y = relu(z);
+      if (y > 1) y = 1;
+      const cx = margin.left + px;
+      const cy = mapYtoPlot(y);
+      if (px === 0) ctx.moveTo(cx, cy); else ctx.lineTo(cx, cy);
+    }
+    ctx.stroke();
+
+    const legendX = margin.left + 10;
+    ctx.fillStyle = sigmoidColor;
+    ctx.fillRect(legendX, margin.top + 6, 10, 8);
+    ctx.fillStyle = "#3c362c";
+    ctx.fillText("Sigmoid", legendX + 16, margin.top + 14);
+    ctx.fillStyle = reluColor;
+    ctx.fillRect(legendX, margin.top + 22, 10, 8);
+    ctx.fillStyle = "#3c362c";
+    ctx.fillText("ReLU (clipped at 1)", legendX + 16, margin.top + 30);
+  }
+
+  function drawPoint(z) {
+    const x = mapZtoX(z);
+    const s = sigmoid(z);
+    const ys = mapYtoPlot(s);
+    ctx.fillStyle = sigmoidColor;
+    ctx.beginPath();
+    ctx.arc(x, ys, 6, 0, Math.PI * 2);
+    ctx.fill();
+
+    let r = relu(z);
+    if (r > 1) r = 1;
+    const yr = mapYtoPlot(r);
+    ctx.fillStyle = reluColor;
+    ctx.beginPath();
+    ctx.arc(x, yr, 6, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (showGrad.checked) {
+      const { plotW, plotH } = plotDims();
+      const pixelsPerZ = plotW / (zMax - zMin);
+      const halfDx = 40;
+      const dz = halfDx / pixelsPerZ;
+
+      const ds = dsigmoid(z);
+      const dySig = ds * dz;
+      const ySig1 = mapYtoPlot(s + dySig);
+      const ySig0 = mapYtoPlot(s - dySig);
+      ctx.strokeStyle = "rgba(43, 93, 255, 0.65)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x - halfDx, ySig0);
+      ctx.lineTo(x + halfDx, ySig1);
+      ctx.stroke();
+
+      let reluSlope = 0;
+      if (z > 0 && z < 1) reluSlope = 1;
+      if (z >= 1) reluSlope = 0;
+      const dyRelu = reluSlope * dz;
+      const yRelu1 = mapYtoPlot(r + dyRelu);
+      const yRelu0 = mapYtoPlot(r - dyRelu);
+      ctx.strokeStyle = "rgba(208, 78, 22, 0.5)";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(x - halfDx, yRelu0);
+      ctx.lineTo(x + halfDx, yRelu1);
+      ctx.stroke();
+    }
+  }
+
+  function render(z) {
+    drawAxes();
+    drawCurves();
+    drawPoint(z);
+  }
+
+  function updateUI() {
+    const x = parseFloat(xSlider.value);
+    const w = parseFloat(wSlider.value);
+    const b = parseFloat(bSlider.value);
+    const z = w * x + b;
+    xVal.textContent = Number(x).toFixed(2);
+    wVal.textContent = Number(w).toFixed(2);
+    bVal.textContent = Number(b).toFixed(2);
+    zVal.textContent = Number(z).toFixed(3);
+    sigVal.textContent = Number(sigmoid(z)).toFixed(3);
+    reluVal.textContent = Number(relu(z)).toFixed(3);
+    render(z);
+  }
+
+  let anim = null;
+  let lastTs = null;
+  let playing = false;
+  let sweepStart = null;
+  let sweepX = parseFloat(xSlider.value);
+  let sweepDir = 1;
+  const sweepDuration = 8000;
+  const bounceSpeed = 0.9;
+
+  const xMin = parseFloat(xSlider.min);
+  const xMax = parseFloat(xSlider.max);
+
+  function startLoop() {
+    if (!anim) {
+      lastTs = null;
+      anim = requestAnimationFrame(animateFrame);
+    }
+  }
+
+  function stopLoop() {
+    if (anim) {
+      cancelAnimationFrame(anim);
+      anim = null;
+    }
+    lastTs = null;
+  }
+
+  function animateFrame(ts) {
+    if (!anim) return;
+    if (!lastTs) lastTs = ts;
+    const dt = (ts - lastTs) / 1000;
+    lastTs = ts;
+
+    if (animateSweep.checked) {
+      sweepX += bounceSpeed * dt * sweepDir;
+      if (sweepX > xMax) { sweepX = xMax; sweepDir = -1; }
+      if (sweepX < xMin) { sweepX = xMin; sweepDir = 1; }
+      xSlider.value = sweepX;
+    } else if (playing) {
+      if (!sweepStart) sweepStart = ts;
+      const t = Math.min(1, (ts - sweepStart) / sweepDuration);
+      const x = xMin + (xMax - xMin) * t;
+      xSlider.value = x;
+      if (t >= 1) {
+        playing = false;
+        playBtn.disabled = false;
+        pauseBtn.disabled = true;
+        stopLoop();
+        updateUI();
+        return;
+      }
+    }
+
+    updateUI();
+    anim = requestAnimationFrame(animateFrame);
+  }
+
+  xSlider.addEventListener("input", updateUI);
+  wSlider.addEventListener("input", updateUI);
+  bSlider.addEventListener("input", updateUI);
+  showGrad.addEventListener("change", updateUI);
+
+  playBtn.addEventListener("click", () => {
+    if (animateSweep.checked) {
+      sweepX = parseFloat(xSlider.value);
+      playing = false;
+    } else {
+      playing = true;
+      sweepStart = null;
+      xSlider.value = xMin;
+    }
+    playBtn.disabled = true;
+    pauseBtn.disabled = false;
+    startLoop();
+  });
+
+  pauseBtn.addEventListener("click", () => {
+    playing = false;
+    stopLoop();
+    playBtn.disabled = false;
+    pauseBtn.disabled = true;
+  });
+
+  stepBtn.addEventListener("click", () => {
+    let v = parseFloat(xSlider.value) + 0.2;
+    if (v > xMax) v = xMin;
+    xSlider.value = v;
+    updateUI();
+  });
+
+  window.addEventListener("resize", resizeCanvas);
+  resizeCanvas();
+</script>
+</body>
+</html>

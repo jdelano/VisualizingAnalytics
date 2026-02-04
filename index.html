@@ -553,7 +553,7 @@
 
   <section class="section" id="neural">
     <h3>Neural Networks</h3>
-    <div class="grid">
+    <div class="section-stack">
       <div class="card card-split">
         <div class="card-left">
           <div class="card-text">
@@ -605,6 +605,41 @@
           </div>
           <div><strong>Metrics</strong><br />Loss • Accuracy</div>
           <div><strong>Equation</strong><br /><span class="equation">a = σ(Wx + b)</span></div>
+        </div>
+      </div>
+      <div class="card card-split">
+        <div class="card-left">
+          <div class="card-text">
+            <span class="pill">Neural Networks</span>
+            <h4>Activation Compare</h4>
+            <p>See how sigmoid and ReLU respond to the same input as you sweep through w · x + b.</p>
+            <a href="activation_compare.html">Launch simulation →</a>
+          </div>
+          <div class="card-media">
+            <svg viewBox="8 8 104 74" aria-hidden="true">
+              <rect x="8" y="8" width="104" height="74" rx="8" fill="none" stroke="none"/>
+              <g transform="translate(-6 -4) scale(1.15)">
+                <path d="M16 62 C30 62, 40 60, 48 56 C56 48, 60 36, 64 28 C68 20, 78 14, 104 10" fill="none" stroke="#2b5dff" stroke-width="2.2"/>
+                <path d="M16 62 L50 62 L70 10 L104 10" fill="none" stroke="#d04e16" stroke-width="2.2"/>
+                <circle cx="50" cy="62" r="3.2" fill="#d04e16" stroke="#1f1c18" stroke-width="0.6"/>
+                <circle cx="70" cy="10" r="3.2" fill="#d04e16" stroke="#1f1c18" stroke-width="0.6"/>
+                <circle cx="59" cy="36" r="3.2" fill="#2b5dff" stroke="#1f1c18" stroke-width="0.6"/>
+              </g>
+            </svg>
+          </div>
+        </div>
+        <div class="card-detail">
+          <div><strong>What you'll see</strong><br />Sigmoid saturates while ReLU clips; slopes tell gradient story.</div>
+          <div><strong>Try this</strong><br />Push b negative to see ReLU go flat.</div>
+          <div><strong>Tags</strong>
+            <div class="tag-row">
+              <span class="tag">Activation</span>
+              <span class="tag">Gradient</span>
+              <span class="tag">Nonlinearity</span>
+            </div>
+          </div>
+          <div><strong>Metrics</strong><br />z • σ(z) • ReLU(z)</div>
+          <div><strong>Equation</strong><br /><span class="equation">z = w·x + b</span></div>
         </div>
       </div>
     </div>
