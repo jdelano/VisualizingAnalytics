@@ -235,7 +235,7 @@
         </div>
         <div class="control">
           <label>Steps per Second <span id="speedVal">4</span></label>
-          <input id="speed" type="range" min="1" max="100" step="1" value="4" />
+          <input id="speed" type="range" min="100" max="10000" step="1" value="100" />
         </div>
         <div class="control">
           <label>Pattern <span id="patternVal">Two Clusters</span></label>
@@ -296,6 +296,7 @@
     let guided = null;
     let anim = null;
     let animFrame = null;
+    const PLAY_FPS = 30;
 
     function randn() {
       let u = 0, v = 0;
@@ -375,7 +376,7 @@
       return { z, h, out, error, dOut, dV, dBout, dH, dW1, dW2, dB1 };
     }
 
-    function trainStep() {
+    function trainStep({ animate = true, render = true } = {}) {
       const sample = data[Math.floor(Math.random() * data.length)];
       const { z, h, out, dOut, dV, dBout, dW1, dW2, dB1, dH } = computeGradients(sample);
 
@@ -389,16 +390,24 @@
       stepCount += 1;
 
       lastForward = { sample, z, h, out, dOut, dH };
-      highlightPhase = 0;
-      renderAll();
-      setTimeout(() => {
-        highlightPhase = 1;
-        renderAll();
-      }, 200);
-      setTimeout(() => {
+      if (animate) {
+        highlightPhase = 0;
+      } else {
         highlightPhase = null;
+      }
+      if (render) {
         renderAll();
-      }, 400);
+      }
+      if (animate) {
+        setTimeout(() => {
+          highlightPhase = 1;
+          renderAll();
+        }, 200);
+        setTimeout(() => {
+          highlightPhase = null;
+          renderAll();
+        }, 400);
+      }
     }
 
     function beginGuidedStep() {
@@ -860,8 +869,12 @@
       event.target.textContent = "Pause";
       isPlaying = true;
       playTimer = setInterval(() => {
-        trainStep();
-      }, 1000 / stepsPerSecond);
+        const stepsThisTick = Math.max(1, Math.round(stepsPerSecond / PLAY_FPS));
+        for (let i = 0; i < stepsThisTick; i++) {
+          trainStep({ animate: false, render: false });
+        }
+        renderAll();
+      }, 1000 / PLAY_FPS);
     });
 
     document.getElementById("reset").addEventListener("click", () => {
@@ -894,7 +907,13 @@
       speedVal.textContent = stepsPerSecond.toString();
       if (playTimer) {
         clearInterval(playTimer);
-        playTimer = setInterval(trainStep, 1000 / stepsPerSecond);
+        playTimer = setInterval(() => {
+          const stepsThisTick = Math.max(1, Math.round(stepsPerSecond / PLAY_FPS));
+          for (let i = 0; i < stepsThisTick; i++) {
+            trainStep({ animate: false, render: false });
+          }
+          renderAll();
+        }, 1000 / PLAY_FPS);
       }
     });
 
