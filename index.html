@@ -355,6 +355,7 @@
         <a href="#regression">Regression</a>
         <a href="#classification">Classification</a>
         <a href="#neural">Neural Networks</a>
+        <a href="#overfitting">Overfitting</a>
         <a href="#clustering">Clustering</a>
         <a href="#explore">About</a>
       </div>
@@ -640,6 +641,51 @@
           </div>
           <div><strong>Metrics</strong><br />z • σ(z) • ReLU(z)</div>
           <div><strong>Equation</strong><br /><span class="equation">z = w·x + b</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="overfitting">
+    <h3>Overfitting</h3>
+    <div class="section-stack">
+      <div class="card card-split">
+        <div class="card-left">
+          <div class="card-text">
+            <span class="pill">Model Complexity</span>
+            <h4>Overfitting Tradeoff Studio</h4>
+            <p>Increase polynomial degree and watch training error fall while test/validation error curves back up.</p>
+            <a href="model_complexity_overfitting_sim.html">Launch simulation →</a>
+          </div>
+          <div class="card-media">
+            <svg viewBox="8 8 104 74" aria-hidden="true">
+              <rect x="8" y="8" width="104" height="74" rx="8" fill="none" stroke="none"/>
+              <g transform="translate(-6 -4) scale(1.15)">
+                <path d="M18 60 C34 38, 52 36, 66 42 C80 50, 92 60, 104 64" fill="none" stroke="#0e7c86" stroke-width="2.2"/>
+                <path d="M18 58 C40 50, 58 38, 78 28 C90 22, 100 20, 108 22" fill="none" stroke="#d04e16" stroke-width="2.2"/>
+                <g fill="#a39b8d" stroke="#1f1c18" stroke-width="0.6">
+                  <circle cx="26" cy="54" r="3.2"/>
+                  <circle cx="38" cy="50" r="3.2"/>
+                  <circle cx="52" cy="44" r="3.2"/>
+                  <circle cx="66" cy="46" r="3.2"/>
+                  <circle cx="84" cy="56" r="3.2"/>
+                </g>
+              </g>
+            </svg>
+          </div>
+        </div>
+        <div class="card-detail">
+          <div><strong>What you'll see</strong><br />Training error drops while test/validation error forms a U‑curve.</div>
+          <div><strong>Try this</strong><br />Switch to Piecewise data and raise degree.</div>
+          <div><strong>Tags</strong>
+            <div class="tag-row">
+              <span class="tag">Bias</span>
+              <span class="tag">Variance</span>
+              <span class="tag">Generalization</span>
+            </div>
+          </div>
+          <div><strong>Metrics</strong><br />Train vs. test/validation error</div>
+          <div><strong>Equation</strong><br /><span class="equation">y = Σ β<sub>k</sub> x<sup>k</sup></span></div>
         </div>
       </div>
     </div>

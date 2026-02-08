@@ -1,0 +1,1164 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Complexity vs. Overfitting Studio</title>
+  <style>
+    :root {
+      --bg: #f6f2e8;
+      --ink: #1a1a1a;
+      --accent: #0e7c86;
+      --accent-2: #d04e16;
+      --grid: #d7d1c4;
+      --soft: #fffdf7;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "IBM Plex Sans", "Fira Sans", "Trebuchet MS", sans-serif;
+      color: var(--ink);
+      background: radial-gradient(circle at top left, #fff7e6 0%, var(--bg) 45%, #f1eadc 100%);
+    }
+
+    header {
+      padding: 20px 24px 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 22px;
+      letter-spacing: 0.5px;
+    }
+
+    header p {
+      margin: 0;
+      font-size: 13px;
+      opacity: 0.8;
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 320px;
+      gap: 18px;
+      padding: 12px 24px 24px;
+    }
+
+    .card {
+      background: #fff;
+      border: 1px solid #e2dbc9;
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(40, 32, 22, 0.1);
+    }
+
+    #canvasWrap {
+      padding: 16px;
+      display: grid;
+      gap: 0;
+      align-content: start;
+      align-items: start;
+      grid-auto-rows: min-content;
+    }
+
+    #fitCanvas {
+      width: 100%;
+      height: 420px;
+      display: block;
+      margin-bottom: 10px;
+      border-radius: 12px;
+      background: linear-gradient(180deg, #fffdf7 0%, #f6f1e6 100%);
+    }
+
+    #errorCanvas {
+      width: 100%;
+      height: 200px;
+      display: block;
+      border-radius: 12px;
+      background: linear-gradient(180deg, #fffaf2 0%, #f2ecdf 100%);
+    }
+
+    #panel {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    #panel h2 {
+      margin: 0;
+      font-size: 16px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .metric {
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #f8f4eb;
+      border: 1px solid #e6decf;
+      font-size: 13px;
+    }
+
+    .metric strong {
+      display: block;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      opacity: 0.7;
+      margin-bottom: 4px;
+    }
+
+    .controls {
+      display: grid;
+      gap: 8px;
+    }
+
+    .control {
+      display: grid;
+      gap: 4px;
+      font-size: 12px;
+    }
+
+    .control label {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      font-weight: 600;
+    }
+
+    .control-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .info {
+      position: relative;
+      display: inline-grid;
+      place-items: center;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      border: 1px solid #c8bfae;
+      color: #5a5247;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: default;
+      background: #fffaf2;
+    }
+
+    .info::after {
+      content: attr(data-tip);
+      position: absolute;
+      left: 50%;
+      bottom: calc(100% + 8px);
+      transform: translateX(-50%);
+      background: #1f1b16;
+      color: #fffaf2;
+      padding: 8px 10px;
+      border-radius: 8px;
+      font-size: 11px;
+      line-height: 1.4;
+      width: max-content;
+      max-width: 220px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s ease;
+      z-index: 5;
+    }
+
+    .info:hover::after,
+    .info:focus::after {
+      opacity: 1;
+    }
+
+    .control input[type="range"] {
+      width: 100%;
+      height: 28px;
+    }
+
+    .control select {
+      width: 100%;
+      padding: 6px 8px;
+      border-radius: 8px;
+      border: 1px solid #d6cfbf;
+      background: #fff;
+      font-family: inherit;
+      font-size: 12px;
+    }
+
+    .actions {
+      margin-top: auto;
+      display: grid;
+      gap: 8px;
+    }
+
+    button {
+      border: none;
+      padding: 10px 14px;
+      border-radius: 10px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    button.secondary {
+      background: #444;
+    }
+
+    button:active { transform: translateY(1px); }
+
+    button.spotlight {
+      background: var(--accent-2);
+      font-size: 14px;
+      letter-spacing: 0.3px;
+      box-shadow: 0 8px 18px rgba(208, 78, 22, 0.25);
+    }
+
+    .preset-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      background: #f4efe6;
+      border: 1px solid #e0d7c6;
+      border-radius: 10px;
+      padding: 8px 10px;
+    }
+
+    .warning {
+      font-size: 12px;
+      color: #7a2b0a;
+      background: #fff1e6;
+      border: 1px solid #f0d2bf;
+      border-radius: 10px;
+      padding: 8px 10px;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .seed-input {
+      width: 110px;
+      padding: 6px 8px;
+      border-radius: 8px;
+      border: 1px solid #e0d7c6;
+      background: #fff;
+      font-family: inherit;
+      font-size: 12px;
+    }
+
+    .seed-input:disabled {
+      background: #e9e3d7;
+      color: #7b7267;
+      border-color: #d6cfbf;
+    }
+
+    .hint {
+      font-size: 12px;
+      opacity: 0.75;
+      line-height: 1.4;
+    }
+
+    .legend {
+      display: grid;
+      gap: 6px;
+      font-size: 12px;
+    }
+
+    .legend-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .legend-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      border: 1px solid #1a1a1a;
+    }
+
+    .legend-dot.teal { background: #0e7c86; }
+    .legend-dot.orange { background: #d04e16; }
+    .legend-dot.gray { background: #a39b8d; }
+
+    @media (max-width: 1000px) {
+      #fitCanvas { height: 360px; }
+    }
+
+    @media (max-width: 900px) {
+      main { grid-template-columns: 1fr; }
+      #panel { order: -1; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Complexity vs. Overfitting Studio</h1>
+    <p>Slide model complexity and see how training and validation error diverge.</p>
+  </header>
+
+  <main>
+    <section id="canvasWrap" class="card">
+      <canvas id="fitCanvas" width="900" height="420"></canvas>
+      <canvas id="errorCanvas" width="900" height="200"></canvas>
+    </section>
+
+    <aside id="panel" class="card">
+      <h2>Model Metrics</h2>
+      <div class="metric" id="risk">
+        <strong>Overfitting Risk</strong>
+        —
+      </div>
+      <div class="warning" id="stabilityNote" style="display:none;">
+        High degree with few samples can be ill‑conditioned. Consider lowering degree or adding samples.
+      </div>
+      <div class="controls">
+        <div class="control">
+          <label for="degree"><span class="control-label">Complexity (Degree) <span class="info" tabindex="0" data-tip="Sets the highest polynomial term. Degree 5 means x, x², x³, x⁴, x⁵ (plus the intercept).">i</span></span> <span id="degreeVal">6</span></label>
+          <input id="degree" type="range" min="1" max="15" step="1" value="6" aria-label="Model complexity degree" />
+        </div>
+        <div class="control">
+          <label for="samples"><span class="control-label">Samples <span class="info" tabindex="0" data-tip="Total points generated (training + validation). More samples reduce variance.">i</span></span> <span id="samplesVal">80</span></label>
+          <input id="samples" type="range" min="20" max="200" step="5" value="80" aria-label="Number of samples" />
+        </div>
+        <div class="control">
+          <label for="noise"><span class="control-label">Noise (σ) <span class="info" tabindex="0" data-tip="Adds randomness to the target; higher noise makes the task harder.">i</span></span> <span id="noiseVal">0.25</span></label>
+          <input id="noise" type="range" min="0" max="0.6" step="0.02" value="0.25" aria-label="Noise level" />
+        </div>
+        <div class="control">
+          <label for="split"><span class="control-label">Train Split <span class="info" tabindex="0" data-tip="Fraction of points used for training. The rest are test/validation.">i</span></span> <span id="splitVal">0.75</span></label>
+          <input id="split" type="range" min="0.5" max="0.9" step="0.05" value="0.75" aria-label="Training split ratio" />
+        </div>
+        <div class="control">
+          <label for="pattern"><span class="control-label">Data Pattern <span class="info" tabindex="0" data-tip="Choose the underlying signal. Piecewise and noise-heavy patterns show overfitting clearly.">i</span></span></label>
+          <select id="pattern" aria-label="Data pattern">
+            <option value="smooth">Smooth (Wavy)</option>
+            <option value="spline">Spline (Curvy)</option>
+            <option value="piecewise">Piecewise (Sharp)</option>
+            <option value="hetero">Heteroscedastic Noise</option>
+            <option value="noise">Noise Only</option>
+          </select>
+        </div>
+      </div>
+      <div class="preset-row">
+        <button id="presetEasy" class="secondary">Easy</button>
+        <button id="presetTypical" class="secondary">Typical</button>
+        <button id="presetHard" class="secondary">Hard</button>
+      </div>
+      <div class="row">
+        <label class="toggle">
+          <input id="useSeed" type="checkbox" />
+          Deterministic seed
+          <span class="info" tabindex="0" data-tip="Use a fixed seed for reproducible datasets.">i</span>
+          <input id="seedVal" class="seed-input" type="number" min="1" max="99999" value="2025" aria-label="Random seed" disabled />
+        </label>
+      </div>
+      <div class="legend">
+        <div class="legend-row"><span class="legend-dot teal"></span> Training points</div>
+        <div class="legend-row"><span class="legend-dot orange"></span> Test/Validation points</div>
+        <div class="legend-row"><span class="legend-dot gray"></span> True function</div>
+      </div>
+      <p class="hint">Increase degree to watch training error drop while validation error eventually rises.</p>
+      <div class="actions">
+        <button id="resample">Resample Data</button>
+        <button id="revealSpotlight" class="spotlight">Reveal Test/Validation</button>
+        <button id="export" class="secondary">Export PNG</button>
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    const fitCanvas = document.getElementById("fitCanvas");
+    const errorCanvas = document.getElementById("errorCanvas");
+    const fitCtx = fitCanvas.getContext("2d");
+    const errCtx = errorCanvas.getContext("2d");
+
+    const degreeInput = document.getElementById("degree");
+    const samplesInput = document.getElementById("samples");
+    const noiseInput = document.getElementById("noise");
+    const splitInput = document.getElementById("split");
+    const patternSelect = document.getElementById("pattern");
+
+    const degreeVal = document.getElementById("degreeVal");
+    const samplesVal = document.getElementById("samplesVal");
+    const noiseVal = document.getElementById("noiseVal");
+    const splitVal = document.getElementById("splitVal");
+
+    const riskEl = document.getElementById("risk");
+
+    const resampleBtn = document.getElementById("resample");
+    const exportBtn = document.getElementById("export");
+    const revealSpotlightBtn = document.getElementById("revealSpotlight");
+    let showValidation = false;
+    const presetEasyBtn = document.getElementById("presetEasy");
+    const presetTypicalBtn = document.getElementById("presetTypical");
+    const presetHardBtn = document.getElementById("presetHard");
+    const stabilityNote = document.getElementById("stabilityNote");
+    const useSeedInput = document.getElementById("useSeed");
+    const seedValInput = document.getElementById("seedVal");
+
+    const fitPadding = { left: 60, right: 30, top: 30, bottom: 50 };
+    const errPadding = { left: 60, right: 24, top: 22, bottom: 38 };
+
+    const xMin = -1;
+    const xMax = 1;
+    const yMin = -1.6;
+    const yMax = 1.6;
+
+    let logicalFitWidth = fitCanvas.width;
+    let logicalFitHeight = fitCanvas.height;
+    let logicalErrWidth = errorCanvas.width;
+    let logicalErrHeight = errorCanvas.height;
+
+    let data = [];
+    let currentCurve = null;
+    let targetCurve = null;
+    let curveAnimStart = 0;
+    let curveAnimDuration = 450;
+    let draggingIndex = null;
+    let dragOffset = { x: 0, y: 0 };
+    let mouseDownPoint = null;
+    let rngSeed = 2025;
+    let rngState = 2025;
+    let flashAt = 0;
+    const splineKnots = [-1, -0.6, -0.2, 0.2, 0.6, 1];
+    const splineValues = [0.4, -0.2, 0.6, -0.4, 0.3, -0.1];
+
+    function gaussian() {
+      let u = 0;
+      let v = 0;
+      while (u === 0) u = rand();
+      while (v === 0) v = rand();
+      return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+    }
+
+    function setSeed(value) {
+      rngSeed = value;
+      rngState = value;
+    }
+
+    function rand() {
+      if (!useSeedInput.checked) return Math.random();
+      rngState = (rngState + 0x6D2B79F5) | 0;
+      let t = Math.imul(rngState ^ (rngState >>> 15), 1 | rngState);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    }
+
+    function trueFunction(x) {
+      const mode = patternSelect.value;
+      if (mode === "spline") {
+        return splineAt(x);
+      }
+      if (mode === "piecewise") {
+        if (x < -0.2) return 0.7 * x + 0.35;
+        if (x < 0.3) return -0.9 * x + 0.1;
+        return 0.5 * x - 0.25;
+      }
+      if (mode === "noise") {
+        return 0;
+      }
+      return 0.55 * Math.sin(4.5 * Math.PI * x)
+        + 0.25 * Math.sin(9.5 * Math.PI * x)
+        + 0.18 * Math.cos(6.2 * Math.PI * x)
+        + 0.12 * x;
+    }
+
+    function splineAt(x) {
+      if (x <= splineKnots[0]) return splineValues[0];
+      if (x >= splineKnots[splineKnots.length - 1]) return splineValues[splineValues.length - 1];
+      let i = 0;
+      for (; i < splineKnots.length - 1; i++) {
+        if (x >= splineKnots[i] && x <= splineKnots[i + 1]) break;
+      }
+      const x0 = splineKnots[Math.max(0, i - 1)];
+      const x1 = splineKnots[i];
+      const x2 = splineKnots[i + 1];
+      const x3 = splineKnots[Math.min(splineKnots.length - 1, i + 2)];
+      const p0 = splineValues[Math.max(0, i - 1)];
+      const p1 = splineValues[i];
+      const p2 = splineValues[i + 1];
+      const p3 = splineValues[Math.min(splineValues.length - 1, i + 2)];
+      const t = (x - x1) / (x2 - x1);
+      return 0.5 * (
+        (2 * p1) +
+        (-p0 + p2) * t +
+        (2 * p0 - 5 * p1 + 4 * p2 - p3) * t * t +
+        (-p0 + 3 * p1 - 3 * p2 + p3) * t * t * t
+      );
+    }
+
+    function generateData() {
+      const n = Number(samplesInput.value);
+      const split = Number(splitInput.value);
+      const noise = Number(noiseInput.value);
+      const baseNoise = noise * 1.6;
+      const mode = patternSelect.value;
+
+      const pts = [];
+      for (let i = 0; i < n; i++) {
+        const x = xMin + rand() * (xMax - xMin);
+        let noiseScale = baseNoise;
+        if (mode === "hetero") {
+          noiseScale = baseNoise * (0.4 + 1.6 * Math.abs(x));
+        }
+        const y = trueFunction(x) + gaussian() * noiseScale;
+        pts.push({ x, y, train: true });
+      }
+
+      for (let i = pts.length - 1; i > 0; i--) {
+        const j = Math.floor(rand() * (i + 1));
+        [pts[i], pts[j]] = [pts[j], pts[i]];
+      }
+
+      const trainCount = Math.max(2, Math.floor(n * split));
+      pts.forEach((pt, idx) => {
+        pt.train = idx < trainCount;
+      });
+      data = pts;
+    }
+
+    function designRow(x, degree) {
+      const row = new Array(degree + 1);
+      row[0] = 1;
+      for (let i = 1; i <= degree; i++) {
+        row[i] = row[i - 1] * x;
+      }
+      return row;
+    }
+
+    function solveLinearSystem(A, b) {
+      const n = A.length;
+      const M = A.map((row, i) => row.slice().concat(b[i]));
+
+      for (let col = 0; col < n; col++) {
+        let pivot = col;
+        for (let row = col + 1; row < n; row++) {
+          if (Math.abs(M[row][col]) > Math.abs(M[pivot][col])) {
+            pivot = row;
+          }
+        }
+        if (Math.abs(M[pivot][col]) < 1e-12) {
+          return null;
+        }
+        if (pivot !== col) {
+          const temp = M[col];
+          M[col] = M[pivot];
+          M[pivot] = temp;
+        }
+        const div = M[col][col];
+        for (let c = col; c <= n; c++) {
+          M[col][c] /= div;
+        }
+        for (let row = 0; row < n; row++) {
+          if (row === col) continue;
+          const factor = M[row][col];
+          for (let c = col; c <= n; c++) {
+            M[row][c] -= factor * M[col][c];
+          }
+        }
+      }
+      return M.map(row => row[n]);
+    }
+
+    function fitPolynomial(points, degree, lambda) {
+      const m = degree + 1;
+      const XtX = Array.from({ length: m }, () => new Array(m).fill(0));
+      const Xty = new Array(m).fill(0);
+      const trainPts = points.filter(pt => pt.train);
+
+      for (const pt of trainPts) {
+        const row = designRow(pt.x, degree);
+        for (let i = 0; i < m; i++) {
+          Xty[i] += row[i] * pt.y;
+          for (let j = 0; j < m; j++) {
+            XtX[i][j] += row[i] * row[j];
+          }
+        }
+      }
+
+      for (let i = 0; i < m; i++) {
+        XtX[i][i] += i === 0 ? lambda * 0.2 : lambda;
+      }
+
+      const coeffs = solveLinearSystem(XtX, Xty);
+      if (coeffs) return coeffs;
+
+      // fallback: increase regularization and retry
+      console.warn("Ill-conditioned system detected. Retrying with stronger regularization.");
+      for (let i = 0; i < m; i++) {
+        XtX[i][i] += 0.5;
+      }
+      return solveLinearSystem(XtX, Xty) || new Array(m).fill(0);
+    }
+
+    function predict(coeffs, x) {
+      let y = 0;
+      let pow = 1;
+      for (let i = 0; i < coeffs.length; i++) {
+        y += coeffs[i] * pow;
+        pow *= x;
+      }
+      return y;
+    }
+
+    function rmse(points, coeffs) {
+      if (!points.length) return 0;
+      let sum = 0;
+      for (const pt of points) {
+        const err = predict(coeffs, pt.x) - pt.y;
+        sum += err * err;
+      }
+      return Math.sqrt(sum / points.length);
+    }
+
+    function rmseMean(points, mean) {
+      if (!points.length) return 0;
+      let sum = 0;
+      for (const pt of points) {
+        const err = mean - pt.y;
+        sum += err * err;
+      }
+      return Math.sqrt(sum / points.length);
+    }
+
+    function buildCurve(coeffs, resolution = 200) {
+      const values = [];
+      for (let i = 0; i <= resolution; i++) {
+        const x = xMin + (i / resolution) * (xMax - xMin);
+        values.push({ x, y: predict(coeffs, x) });
+      }
+      return values;
+    }
+
+    function updateText(degree, trainErr, valErr) {
+
+      const gap = valErr - trainErr;
+      let risk = "Balanced";
+      if (showValidation) {
+        if (gap > 0.2 && degree >= 8) risk = "High";
+        else if (gap > 0.1) risk = "Moderate";
+        riskEl.innerHTML = `<strong>Overfitting Risk</strong>${risk}`;
+      } else {
+        riskEl.innerHTML = `<strong>Overfitting Risk</strong>Hidden`;
+      }
+    }
+
+    function resizeCanvas(canvas, ctx, isFit) {
+      const rect = canvas.getBoundingClientRect();
+      const ratio = window.devicePixelRatio || 1;
+      const width = Math.round(rect.width);
+      const height = Math.round(rect.height);
+      canvas.width = Math.round(width * ratio);
+      canvas.height = Math.round(height * ratio);
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      if (isFit) {
+        logicalFitWidth = width;
+        logicalFitHeight = height;
+      } else {
+        logicalErrWidth = width;
+        logicalErrHeight = height;
+      }
+    }
+
+    function toFitX(x) {
+      const w = logicalFitWidth - fitPadding.left - fitPadding.right;
+      return fitPadding.left + ((x - xMin) / (xMax - xMin)) * w;
+    }
+
+    function toFitY(y) {
+      const h = logicalFitHeight - fitPadding.top - fitPadding.bottom;
+      return logicalFitHeight - fitPadding.bottom - ((y - yMin) / (yMax - yMin)) * h;
+    }
+
+    function fromFitCoords(px, py) {
+      const w = logicalFitWidth - fitPadding.left - fitPadding.right;
+      const h = logicalFitHeight - fitPadding.top - fitPadding.bottom;
+      const x = xMin + ((px - fitPadding.left) / w) * (xMax - xMin);
+      const y = yMin + ((logicalFitHeight - fitPadding.bottom - py) / h) * (yMax - yMin);
+      return {
+        x: Math.max(xMin, Math.min(xMax, x)),
+        y: Math.max(yMin, Math.min(yMax, y))
+      };
+    }
+
+    function drawFitAxes() {
+      fitCtx.clearRect(0, 0, logicalFitWidth, logicalFitHeight);
+
+      fitCtx.strokeStyle = "#d6cfc0";
+      fitCtx.lineWidth = 1;
+
+      for (let i = 0; i <= 10; i++) {
+        const x = toFitX(xMin + (i / 10) * (xMax - xMin));
+        fitCtx.beginPath();
+        fitCtx.moveTo(x, fitPadding.top);
+        fitCtx.lineTo(x, logicalFitHeight - fitPadding.bottom);
+        fitCtx.stroke();
+      }
+
+      for (let j = 0; j <= 8; j++) {
+        const y = toFitY(yMin + (j / 8) * (yMax - yMin));
+        fitCtx.beginPath();
+        fitCtx.moveTo(fitPadding.left, y);
+        fitCtx.lineTo(logicalFitWidth - fitPadding.right, y);
+        fitCtx.stroke();
+      }
+
+      fitCtx.strokeStyle = "#3c362c";
+      fitCtx.lineWidth = 2;
+      fitCtx.beginPath();
+      fitCtx.moveTo(fitPadding.left, fitPadding.top);
+      fitCtx.lineTo(fitPadding.left, logicalFitHeight - fitPadding.bottom);
+      fitCtx.lineTo(logicalFitWidth - fitPadding.right, logicalFitHeight - fitPadding.bottom);
+      fitCtx.stroke();
+
+      fitCtx.fillStyle = "#3c362c";
+      fitCtx.font = "12px 'IBM Plex Sans', sans-serif";
+      fitCtx.textAlign = "center";
+      for (let i = 0; i <= 4; i++) {
+        const val = xMin + (i / 4) * (xMax - xMin);
+        fitCtx.fillText(val.toFixed(1), toFitX(val), logicalFitHeight - fitPadding.bottom + 18);
+      }
+      fitCtx.textAlign = "right";
+      for (let j = 0; j <= 4; j++) {
+        const val = yMin + (j / 4) * (yMax - yMin);
+        fitCtx.fillText(val.toFixed(1), fitPadding.left - 8, toFitY(val) + 4);
+      }
+
+      fitCtx.textAlign = "center";
+      fitCtx.fillText("Input x", (fitPadding.left + logicalFitWidth - fitPadding.right) / 2, logicalFitHeight - 10);
+      fitCtx.save();
+      fitCtx.translate(18, logicalFitHeight / 2);
+      fitCtx.rotate(-Math.PI / 2);
+      fitCtx.fillText("Target y", 0, 0);
+      fitCtx.restore();
+    }
+
+    function drawTrueFunction() {
+      fitCtx.strokeStyle = "#a39b8d";
+      fitCtx.lineWidth = 2;
+      fitCtx.setLineDash([6, 4]);
+      fitCtx.beginPath();
+      for (let i = 0; i <= 200; i++) {
+        const x = xMin + (i / 200) * (xMax - xMin);
+        const y = trueFunction(x);
+        const cx = toFitX(x);
+        const cy = toFitY(y);
+        if (i === 0) fitCtx.moveTo(cx, cy);
+        else fitCtx.lineTo(cx, cy);
+      }
+      fitCtx.stroke();
+      fitCtx.setLineDash([]);
+    }
+
+    function drawPoints() {
+      for (const pt of data) {
+        if (!pt.train && !showValidation) continue;
+        fitCtx.beginPath();
+        fitCtx.fillStyle = pt.train ? "#0e7c86" : "#d04e16";
+        fitCtx.strokeStyle = "#1a1a1a";
+        fitCtx.lineWidth = 1;
+        fitCtx.arc(toFitX(pt.x), toFitY(pt.y), 4.8, 0, Math.PI * 2);
+        fitCtx.fill();
+        fitCtx.stroke();
+      }
+    }
+
+    function drawCurve(curve) {
+      if (!curve || curve.length === 0) return;
+      fitCtx.strokeStyle = "#0e7c86";
+      fitCtx.lineWidth = 2.5;
+      fitCtx.beginPath();
+      curve.forEach((pt, idx) => {
+        const cx = toFitX(pt.x);
+        const cy = toFitY(pt.y);
+        if (idx === 0) fitCtx.moveTo(cx, cy);
+        else fitCtx.lineTo(cx, cy);
+      });
+      fitCtx.stroke();
+    }
+
+    function drawFitCanvas() {
+      drawFitAxes();
+      drawTrueFunction();
+      drawPoints();
+      if (currentCurve && targetCurve && curveAnimStart) {
+        const t = Math.min(1, (performance.now() - curveAnimStart) / curveAnimDuration);
+        const blended = currentCurve.map((pt, idx) => {
+          const target = targetCurve[idx];
+          return { x: pt.x, y: pt.y + (target.y - pt.y) * easeInOut(t) };
+        });
+        drawCurve(blended);
+        if (t >= 1) {
+          currentCurve = targetCurve;
+          curveAnimStart = 0;
+        }
+      } else if (currentCurve) {
+        drawCurve(currentCurve);
+      }
+    }
+
+    function easeInOut(t) {
+      return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+    }
+
+    function drawErrorAxes(maxErr, baselinePercent) {
+      errCtx.clearRect(0, 0, logicalErrWidth, logicalErrHeight);
+      errCtx.strokeStyle = "#d6cfc0";
+      errCtx.lineWidth = 1;
+      for (let i = 0; i <= 8; i++) {
+        const x = errPadding.left + (i / 8) * (logicalErrWidth - errPadding.left - errPadding.right);
+        errCtx.beginPath();
+        errCtx.moveTo(x, errPadding.top);
+        errCtx.lineTo(x, logicalErrHeight - errPadding.bottom);
+        errCtx.stroke();
+      }
+      const tickStep = Math.max(5, Math.ceil((maxErr / 5) / 5) * 5);
+      const yTicks = Math.max(4, Math.ceil(maxErr / tickStep));
+      for (let j = 0; j <= yTicks; j++) {
+        const y = errPadding.top + (j / yTicks) * (logicalErrHeight - errPadding.top - errPadding.bottom);
+        errCtx.beginPath();
+        errCtx.moveTo(errPadding.left, y);
+        errCtx.lineTo(logicalErrWidth - errPadding.right, y);
+        errCtx.stroke();
+      }
+
+      errCtx.strokeStyle = "#3c362c";
+      errCtx.lineWidth = 2;
+      errCtx.beginPath();
+      errCtx.moveTo(errPadding.left, errPadding.top);
+      errCtx.lineTo(errPadding.left, logicalErrHeight - errPadding.bottom);
+      errCtx.lineTo(logicalErrWidth - errPadding.right, logicalErrHeight - errPadding.bottom);
+      errCtx.stroke();
+
+      errCtx.fillStyle = "#3c362c";
+      errCtx.font = "12px 'IBM Plex Sans', sans-serif";
+      errCtx.textAlign = "right";
+      for (let j = 0; j <= yTicks; j++) {
+        const val = maxErr - j * tickStep;
+        const y = errPadding.top + (j / yTicks) * (logicalErrHeight - errPadding.top - errPadding.bottom);
+        errCtx.fillText(val.toFixed(0), errPadding.left - 6, y + 4);
+      }
+
+      errCtx.textAlign = "center";
+      errCtx.fillText("Model Complexity (Degree)", (errPadding.left + logicalErrWidth - errPadding.right) / 2, logicalErrHeight - 10);
+      errCtx.save();
+      errCtx.translate(16, logicalErrHeight / 2);
+      errCtx.rotate(-Math.PI / 2);
+      errCtx.fillText("Error (%)", 0, 0);
+      errCtx.restore();
+
+      const baseY = toErrY(baselinePercent, maxErr);
+      errCtx.strokeStyle = "#8a8275";
+      errCtx.lineWidth = 1.5;
+      errCtx.setLineDash([6, 4]);
+      errCtx.beginPath();
+      errCtx.moveTo(errPadding.left, baseY);
+      errCtx.lineTo(logicalErrWidth - errPadding.right, baseY);
+      errCtx.stroke();
+      errCtx.setLineDash([]);
+    }
+
+    function toErrX(degree, maxDegree) {
+      const w = logicalErrWidth - errPadding.left - errPadding.right;
+      return errPadding.left + ((degree - 1) / (maxDegree - 1)) * w;
+    }
+
+    function toErrY(err, maxErr) {
+      const h = logicalErrHeight - errPadding.top - errPadding.bottom;
+      return errPadding.top + (1 - err / maxErr) * h;
+    }
+
+    function drawErrorCurves(trainErrs, valErrs, maxDegree, maxErr, currentDegree, baselinePercent) {
+      drawErrorAxes(maxErr, baselinePercent);
+
+      const drawLine = (errs, color) => {
+        errCtx.strokeStyle = color;
+        errCtx.lineWidth = 2.3;
+        errCtx.beginPath();
+        errs.forEach((err, idx) => {
+          const deg = idx + 1;
+          const x = toErrX(deg, maxDegree);
+          const y = toErrY(err, maxErr);
+          if (idx === 0) errCtx.moveTo(x, y);
+          else errCtx.lineTo(x, y);
+        });
+        errCtx.stroke();
+      };
+
+      drawLine(trainErrs, "#0e7c86");
+      if (showValidation) {
+        drawLine(valErrs, "#d04e16");
+      }
+
+      errCtx.fillStyle = "#1a1a1a";
+      errCtx.strokeStyle = "#1a1a1a";
+      const cx = toErrX(currentDegree, maxDegree);
+      const cyTrain = toErrY(trainErrs[currentDegree - 1], maxErr);
+      errCtx.beginPath();
+      errCtx.arc(cx, cyTrain, 4.5, 0, Math.PI * 2);
+      errCtx.fill();
+      if (showValidation) {
+        const cyVal = toErrY(valErrs[currentDegree - 1], maxErr);
+        errCtx.beginPath();
+        errCtx.arc(cx, cyVal, 4.5, 0, Math.PI * 2);
+        errCtx.fill();
+      }
+
+      if (showValidation) {
+        errCtx.fillStyle = "rgba(208, 78, 22, 0.06)";
+        errCtx.fillRect(errPadding.left, errPadding.top, logicalErrWidth - errPadding.left - errPadding.right, logicalErrHeight - errPadding.top - errPadding.bottom);
+      }
+      if (flashAt && performance.now() - flashAt > 450) {
+        flashAt = 0;
+      }
+    }
+
+
+    function refresh() {
+      degreeVal.textContent = degreeInput.value;
+      samplesVal.textContent = samplesInput.value;
+      noiseVal.textContent = Number(noiseInput.value).toFixed(2);
+      splitVal.textContent = Number(splitInput.value).toFixed(2);
+      const degree = Number(degreeInput.value);
+      const lambda = 0;
+
+      const coeffs = fitPolynomial(data, degree, lambda);
+      const trainPts = data.filter(pt => pt.train);
+      const valPts = data.filter(pt => !pt.train);
+      const trainErr = rmse(trainPts, coeffs);
+      const valErr = rmse(valPts, coeffs);
+
+      const meanTrain = trainPts.length
+        ? trainPts.reduce((sum, pt) => sum + pt.y, 0) / trainPts.length
+        : 0;
+      const baseline = Math.max(1e-6, rmseMean(trainPts, meanTrain));
+
+      updateText(degree, trainErr, valErr);
+
+      const newCurve = buildCurve(coeffs);
+      if (!currentCurve) {
+        currentCurve = newCurve;
+      } else {
+        targetCurve = newCurve;
+        curveAnimStart = performance.now();
+      }
+
+      const maxDegree = Number(degreeInput.max);
+      const trainErrs = [];
+      const valErrs = [];
+      for (let d = 1; d <= maxDegree; d++) {
+        const coeffsD = fitPolynomial(data, d, lambda);
+        trainErrs.push((rmse(trainPts, coeffsD) / baseline) * 100);
+        valErrs.push((rmse(valPts, coeffsD) / baseline) * 100);
+      }
+      const rawMax = Math.max(0.001, ...trainErrs, ...valErrs) * 1.12;
+      const maxErr = Math.max(100, Math.ceil(rawMax / 25) * 25);
+      const baselinePercent = 100;
+
+      drawFitCanvas();
+      drawErrorCurves(trainErrs, valErrs, maxDegree, maxErr, degree, baselinePercent);
+
+      const warn = degree + 1 > trainPts.length || (degree >= 12 && trainPts.length < 40);
+      stabilityNote.style.display = warn ? "block" : "none";
+    }
+
+    function handleResize() {
+      resizeCanvas(fitCanvas, fitCtx, true);
+      resizeCanvas(errorCanvas, errCtx, false);
+      refresh();
+    }
+
+    function animate(time) {
+      if (curveAnimStart) {
+        drawFitCanvas();
+      }
+      requestAnimationFrame(animate);
+    }
+
+    degreeInput.addEventListener("input", refresh);
+    samplesInput.addEventListener("input", () => {
+      generateData();
+      refresh();
+    });
+    noiseInput.addEventListener("input", () => {
+      generateData();
+      refresh();
+    });
+    splitInput.addEventListener("input", () => {
+      generateData();
+      refresh();
+    });
+    patternSelect.addEventListener("change", () => {
+      generateData();
+      refresh();
+    });
+    useSeedInput.addEventListener("change", () => {
+      seedValInput.disabled = !useSeedInput.checked;
+      if (useSeedInput.checked) {
+        setSeed(Number(seedValInput.value) || 1);
+        generateData();
+        refresh();
+      }
+    });
+    seedValInput.addEventListener("change", () => {
+      if (useSeedInput.checked) {
+        setSeed(Number(seedValInput.value) || 1);
+        generateData();
+        refresh();
+      }
+    });
+
+    const applyPreset = (samples, noise, split) => {
+      samplesInput.value = samples;
+      noiseInput.value = noise;
+      splitInput.value = split;
+      generateData();
+      refresh();
+    };
+    presetEasyBtn.addEventListener("click", () => {
+      useSeedInput.checked = true;
+      seedValInput.disabled = false;
+      seedValInput.value = 101;
+      setSeed(101);
+      applyPreset(160, 0.1, 0.8);
+    });
+    presetTypicalBtn.addEventListener("click", () => {
+      useSeedInput.checked = true;
+      seedValInput.disabled = false;
+      seedValInput.value = 202;
+      setSeed(202);
+      applyPreset(80, 0.25, 0.75);
+    });
+    presetHardBtn.addEventListener("click", () => {
+      useSeedInput.checked = true;
+      seedValInput.disabled = false;
+      seedValInput.value = 303;
+      setSeed(303);
+      applyPreset(30, 0.4, 0.6);
+    });
+
+    resampleBtn.addEventListener("click", () => {
+      generateData();
+      refresh();
+    });
+
+    revealSpotlightBtn.addEventListener("click", () => {
+      showValidation = !showValidation;
+      flashAt = performance.now();
+      revealSpotlightBtn.textContent = showValidation ? "Hide Test/Validation" : "Reveal Test/Validation";
+      refresh();
+    });
+
+    exportBtn.addEventListener("click", () => {
+      const exportCanvas = document.createElement("canvas");
+      const width = Math.max(logicalFitWidth, logicalErrWidth);
+      const height = logicalFitHeight + logicalErrHeight + 20;
+      exportCanvas.width = width;
+      exportCanvas.height = height;
+      const ectx = exportCanvas.getContext("2d");
+      ectx.fillStyle = "#fffdf7";
+      ectx.fillRect(0, 0, width, height);
+      ectx.drawImage(fitCanvas, 0, 0, logicalFitWidth, logicalFitHeight);
+      ectx.drawImage(errorCanvas, 0, logicalFitHeight + 20, logicalErrWidth, logicalErrHeight);
+      const link = document.createElement("a");
+      link.download = "complexity_overfitting_snapshot.png";
+      link.href = exportCanvas.toDataURL("image/png");
+      link.click();
+    });
+
+    window.addEventListener("resize", handleResize);
+    fitCanvas.addEventListener("mousedown", (event) => {
+      const rect = fitCanvas.getBoundingClientRect();
+      const mx = event.clientX - rect.left;
+      const my = event.clientY - rect.top;
+      mouseDownPoint = { x: mx, y: my };
+      draggingIndex = null;
+      let best = -1;
+      let bestDist = 9999;
+      data.forEach((pt, idx) => {
+        const dx = mx - toFitX(pt.x);
+        const dy = my - toFitY(pt.y);
+        const dist = Math.hypot(dx, dy);
+        if (dist < bestDist) {
+          bestDist = dist;
+          best = idx;
+        }
+      });
+      if (bestDist <= 10) {
+        draggingIndex = best;
+        dragOffset = {
+          x: mx - toFitX(data[best].x),
+          y: my - toFitY(data[best].y)
+        };
+      }
+    });
+
+    window.addEventListener("mousemove", (event) => {
+      if (draggingIndex === null) return;
+      const rect = fitCanvas.getBoundingClientRect();
+      const mx = event.clientX - rect.left - dragOffset.x;
+      const my = event.clientY - rect.top - dragOffset.y;
+      const coords = fromFitCoords(mx, my);
+      data[draggingIndex].x = coords.x;
+      data[draggingIndex].y = coords.y;
+      refresh();
+    });
+
+    window.addEventListener("mouseup", (event) => {
+      if (!mouseDownPoint) {
+        draggingIndex = null;
+        return;
+      }
+      const rect = fitCanvas.getBoundingClientRect();
+      const mx = event.clientX - rect.left;
+      const my = event.clientY - rect.top;
+      const moved = Math.hypot(mx - mouseDownPoint.x, my - mouseDownPoint.y);
+      const wasDragging = draggingIndex !== null;
+      draggingIndex = null;
+      if (!wasDragging && moved < 5) {
+        const inPlot = mx >= fitPadding.left &&
+          mx <= logicalFitWidth - fitPadding.right &&
+          my >= fitPadding.top &&
+          my <= logicalFitHeight - fitPadding.bottom;
+        if (inPlot) {
+          const coords = fromFitCoords(mx, my);
+          const split = Number(splitInput.value);
+          const trainCount = data.filter(pt => pt.train).length;
+          const shouldTrain = trainCount / Math.max(1, data.length) < split;
+          data.push({ x: coords.x, y: coords.y, train: shouldTrain });
+          refresh();
+        }
+      }
+      mouseDownPoint = null;
+    });
+
+    generateData();
+    seedValInput.disabled = !useSeedInput.checked;
+    revealSpotlightBtn.textContent = showValidation ? "Hide Test/Validation" : "Reveal Test/Validation";
+    handleResize();
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>
