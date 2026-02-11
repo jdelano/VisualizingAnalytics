@@ -226,11 +226,11 @@
   <main>
     <section class="card viz">
       <div class="canvas-shell">
-        <div class="overlay-label" id="foldLabel">Fold 1 of 5</div>
+        <div class="overlay-label" id="foldLabel">Iteration 1 of 5</div>
         <canvas id="scatterCanvas"></canvas>
       </div>
       <div class="canvas-shell">
-        <div class="overlay-label">Validation error by fold</div>
+        <div class="overlay-label">Validation error by iteration</div>
         <canvas id="timelineCanvas"></canvas>
       </div>
       <div class="legend">
@@ -243,7 +243,7 @@
     <aside class="card panel">
       <h2>Controls</h2>
       <div class="metric">
-        <strong>Current fold</strong>
+        <strong>Current iteration</strong>
         <div id="currentFold">1 of 5</div>
       </div>
       <div class="metric">
@@ -268,7 +268,7 @@
         <button class="secondary" id="resetBtn">Reset cycle</button>
       </div>
 
-      <p class="note">Each fold runs through the same flow: training data enters, fits a line, exits, then validation data arrives to test the line and update the error bars.</p>
+      <p class="note">Each iteration runs through the same flow: training data enters, fits a line, exits, then validation data arrives to test the line and update the error bars.</p>
     </aside>
   </main>
 
@@ -896,7 +896,7 @@
         tctx.font = '12px "Work Sans", sans-serif';
         tctx.textAlign = 'center';
         tctx.textBaseline = 'middle';
-        tctx.fillText(`Fold ${i + 1}`, x + boxW / 2, y + boxH / 2);
+        tctx.fillText(`Iteration ${i + 1}`, x + boxW / 2, y + boxH / 2);
       }
 
       const chartY = pad + labelH + 14;
@@ -949,7 +949,7 @@
 
     function updateMetrics() {
       const foldNum = state.foldIndex + 1;
-      foldLabel.textContent = `Fold ${foldNum} of 5`;
+      foldLabel.textContent = `Iteration ${foldNum} of 5`;
       currentFold.textContent = `${foldNum} of 5`;
       const err = state.foldErrors[state.foldIndex];
       foldError.textContent = err === null ? '--' : err.toFixed(3);
