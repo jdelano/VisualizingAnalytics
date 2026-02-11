@@ -993,6 +993,14 @@
     }
 
     function bindControls() {
+      const startStep = () => {
+        state.running = false;
+        state.stepAdvance = true;
+        state.phaseTime = 0;
+        state.lastTime = performance.now();
+        runBtn.textContent = 'Play';
+      };
+
       speedSlider.addEventListener('input', e => {
         const sliderVal = Number(e.target.value);
         state.speed = sliderVal * 0.5;
@@ -1003,10 +1011,7 @@
         runBtn.textContent = state.running ? 'Pause' : 'Play';
       });
       pauseBtn.addEventListener('click', () => {
-        state.running = false;
-        runBtn.textContent = 'Play';
-        state.phaseTime = 0;
-        state.stepAdvance = true;
+        startStep();
       });
       resetBtn.addEventListener('click', () => {
         state.phase = 0;
