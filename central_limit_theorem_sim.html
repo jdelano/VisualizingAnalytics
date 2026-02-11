@@ -1,0 +1,883 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Central Limit Theorem Simulator</title>
+  <style>
+    :root {
+      --bg: #f6f1e7;
+      --ink: #1f1c18;
+      --muted: #6b6258;
+      --accent: #0e7c86;
+      --accent-2: #d04e16;
+      --panel: #fff;
+      --line: #e2d6c4;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "IBM Plex Sans", "Fira Sans", "Trebuchet MS", sans-serif;
+      color: var(--ink);
+      background: radial-gradient(circle at 20% 10%, #fff9ee 0%, var(--bg) 45%, #efe7da 100%);
+    }
+
+    header {
+      padding: 20px 24px 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 22px;
+      letter-spacing: 0.5px;
+    }
+
+    header p {
+      margin: 0;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 300px;
+      gap: 18px;
+      padding: 12px 24px 26px;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(40, 32, 22, 0.1);
+    }
+
+    .chart-wrap {
+      padding: 16px;
+      display: grid;
+      gap: 16px;
+    }
+
+    canvas {
+      width: 100%;
+      height: 230px;
+      display: block;
+      border-radius: 12px;
+      background: linear-gradient(180deg, #fffdf7 0%, #f6f1e6 100%);
+    }
+
+    .mid-canvas {
+      height: 200px;
+    }
+
+    .chart-title {
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--muted);
+      margin: 4px 4px 0;
+    }
+
+    #panel {
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+    }
+
+    #panel h2 {
+      margin: 0;
+      font-size: 15px;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+    }
+
+    .control {
+      display: grid;
+      gap: 6px;
+      font-size: 13px;
+    }
+
+    label {
+      font-weight: 600;
+    }
+
+    select,
+    input[type="range"],
+    button {
+      font-family: inherit;
+    }
+
+    select {
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: #fff;
+      font-size: 13px;
+    }
+
+    input[type="range"] {
+      width: 100%;
+    }
+
+    .metric {
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #f8f4eb;
+      border: 1px solid #e6decf;
+      font-size: 12.5px;
+      line-height: 1.5;
+    }
+
+    .metric strong {
+      display: block;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      opacity: 0.7;
+      margin-bottom: 4px;
+    }
+
+    .actions {
+      display: grid;
+      gap: 8px;
+    }
+
+    button {
+      border: none;
+      padding: 10px 14px;
+      border-radius: 10px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    button.secondary {
+      background: #3b3b3b;
+    }
+
+    button.ghost {
+      background: #fff;
+      color: var(--ink);
+      border: 1px solid var(--line);
+    }
+
+    button:active { transform: translateY(1px); }
+
+    .hint {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .legend {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .swatch {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+      display: inline-block;
+    }
+
+    @media (max-width: 980px) {
+      main { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Central Limit Theorem Simulator</h1>
+    <p>Draw repeated samples and watch the distribution of sample means become normal.</p>
+  </header>
+
+  <main>
+    <section class="card chart-wrap">
+      <div>
+        <div class="chart-title">Population Distribution</div>
+        <canvas id="popCanvas" width="900" height="260"></canvas>
+      </div>
+      <div>
+        <div class="chart-title">Sample (n values)</div>
+        <canvas id="midCanvas" class="mid-canvas" width="900" height="200"></canvas>
+      </div>
+      <div>
+        <div class="chart-title">Sampling Distribution of the Mean</div>
+        <canvas id="meanCanvas" width="900" height="260"></canvas>
+        <div class="legend">
+          <span><i class="swatch" style="background: var(--accent);"></i>Sample means</span>
+          <span><i class="swatch" style="background: var(--accent-2);"></i>Normal curve (CLT)</span>
+        </div>
+      </div>
+    </section>
+
+    <aside id="panel" class="card">
+      <h2>Controls</h2>
+      <div class="control">
+        <label for="dist">Population distribution</label>
+        <select id="dist">
+          <option value="uniform">Uniform (0, 1)</option>
+          <option value="exponential">Exponential (λ = 1)</option>
+          <option value="bernoulli">Bernoulli (p = 0.3)</option>
+          <option value="bimodal">Bimodal mixture</option>
+          <option value="normal">Normal (μ = 0, σ = 1)</option>
+          <option value="custom">Custom (click to draw)</option>
+        </select>
+      </div>
+      <div class="control">
+        <label for="nRange">Sample size n: <span id="nValue">10</span></label>
+        <input id="nRange" type="range" min="1" max="80" value="10" />
+      </div>
+      <div class="control">
+        <label for="batchRange">Samples per click: <span id="batchValue">20</span></label>
+        <input id="batchRange" type="range" min="1" max="200" value="20" />
+      </div>
+      <div class="actions">
+        <button id="drawOne">Draw sample</button>
+        <button id="drawBatch" class="secondary">Draw batch</button>
+        <button id="toggleAuto" class="ghost">Auto: Off</button>
+        <button id="reset" class="ghost">Reset</button>
+      </div>
+      <div class="metric" id="stats">
+        <strong>Current stats</strong>
+        Samples drawn: 0<br />
+        Population mean: —<br />
+        Population SD: —<br />
+        SE of mean: —
+      </div>
+      <div class="metric" id="sampleInfo">
+        <strong>Latest sample</strong>
+        Mean: —<br />
+        Min/Max: —
+      </div>
+      <div class="hint">
+        The CLT says the distribution of sample means becomes normal as n increases,
+        even if the population is skewed or multi‑modal.
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    const distSelect = document.getElementById('dist');
+    const nRange = document.getElementById('nRange');
+    const nValue = document.getElementById('nValue');
+    const batchRange = document.getElementById('batchRange');
+    const batchValue = document.getElementById('batchValue');
+    const drawOneBtn = document.getElementById('drawOne');
+    const drawBatchBtn = document.getElementById('drawBatch');
+    const toggleAutoBtn = document.getElementById('toggleAuto');
+    const resetBtn = document.getElementById('reset');
+    const statsEl = document.getElementById('stats');
+    const sampleInfoEl = document.getElementById('sampleInfo');
+
+    const popCanvas = document.getElementById('popCanvas');
+    const midCanvas = document.getElementById('midCanvas');
+    const meanCanvas = document.getElementById('meanCanvas');
+    const popCtx = popCanvas.getContext('2d');
+    const midCtx = midCanvas.getContext('2d');
+    const meanCtx = meanCanvas.getContext('2d');
+
+    const POPULATION_SAMPLES = 6000;
+    const HIST_BINS = 40;
+
+    let population = [];
+    let populationStats = null;
+    let meanSamples = [];
+    let autoTimer = null;
+    let lastSample = null;
+    let popRange = { min: -1, max: 1 };
+    let animating = false;
+    let middleBoxes = [];
+    let meanDrop = null;
+    let middleAnimFrame = null;
+    let meanAnimFrame = null;
+    let customHeights = null;
+    let isDrawingCustom = false;
+    let customCdf = null;
+
+    function normalSample(mu = 0, sigma = 1) {
+      let u = 0;
+      let v = 0;
+      while (u === 0) u = Math.random();
+      while (v === 0) v = Math.random();
+      const z = Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+      return mu + z * sigma;
+    }
+
+    function distSampler(name) {
+      switch (name) {
+        case 'uniform':
+          return () => Math.random();
+        case 'exponential':
+          return () => -Math.log(1 - Math.random());
+        case 'bernoulli': {
+          const p = 0.3;
+          return () => (Math.random() < p ? 1 : 0);
+        }
+        case 'bimodal':
+          return () => (Math.random() < 0.5 ? normalSample(-2, 0.6) : normalSample(2, 0.6));
+        case 'custom':
+          return () => sampleFromCustom();
+        case 'normal':
+        default:
+          return () => normalSample(0, 1);
+      }
+    }
+
+    function ensureCustomHeights() {
+      if (!customHeights) {
+        customHeights = Array.from({ length: HIST_BINS }, () => 0.25);
+      }
+    }
+
+    function updateCustomCdf() {
+      ensureCustomHeights();
+      const total = customHeights.reduce((sum, v) => sum + v, 0);
+      const weights = total > 0 ? customHeights : customHeights.map(() => 1);
+      const weightSum = weights.reduce((sum, v) => sum + v, 0);
+      customCdf = [];
+      let acc = 0;
+      weights.forEach((w) => {
+        acc += w / weightSum;
+        customCdf.push(acc);
+      });
+    }
+
+    function sampleFromCustom() {
+      if (!customCdf) updateCustomCdf();
+      const r = Math.random();
+      const idx = customCdf.findIndex((v) => r <= v);
+      const bin = idx === -1 ? HIST_BINS - 1 : idx;
+      const binMin = popRange.min + (bin / HIST_BINS) * (popRange.max - popRange.min);
+      const binMax = popRange.min + ((bin + 1) / HIST_BINS) * (popRange.max - popRange.min);
+      return binMin + Math.random() * (binMax - binMin);
+    }
+
+    function buildPopulationFromCustom() {
+      ensureCustomHeights();
+      updateCustomCdf();
+      population = [];
+      for (let i = 0; i < POPULATION_SAMPLES; i += 1) {
+        population.push(sampleFromCustom());
+      }
+      populationStats = computeStats(population);
+    }
+
+    function theoreticalStats(name) {
+      switch (name) {
+        case 'uniform':
+          return { mean: 0.5, variance: 1 / 12 };
+        case 'exponential':
+          return { mean: 1, variance: 1 };
+        case 'bernoulli': {
+          const p = 0.3;
+          return { mean: p, variance: p * (1 - p) };
+        }
+        case 'bimodal':
+          return { mean: 0, variance: 4.36 };
+        case 'normal':
+        default:
+          return { mean: 0, variance: 1 };
+      }
+    }
+
+    function computeStats(values) {
+      const n = values.length;
+      if (!n) return { mean: 0, variance: 0 };
+      const mean = values.reduce((sum, v) => sum + v, 0) / n;
+      const variance = values.reduce((sum, v) => sum + (v - mean) ** 2, 0) / n;
+      return { mean, variance };
+    }
+
+    function histogram(values, bins, min, max) {
+      const counts = new Array(bins).fill(0);
+      const span = max - min || 1;
+      values.forEach((v) => {
+        const idx = Math.max(0, Math.min(bins - 1, Math.floor(((v - min) / span) * bins)));
+        counts[idx] += 1;
+      });
+      return counts;
+    }
+
+    function drawHistogram(ctx, values, options = {}) {
+      const {
+        title = '',
+        color = '#0e7c86',
+        min = values.length ? Math.min(...values) : -1,
+        max = values.length ? Math.max(...values) : 1,
+        overlayNormal = null,
+      } = options;
+
+      ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+
+      const padding = { left: 50, right: 20, top: 20, bottom: 34 };
+      const width = ctx.canvas.width - padding.left - padding.right;
+      const height = ctx.canvas.height - padding.top - padding.bottom;
+      const minVal = Number.isFinite(min) ? min : -1;
+      const maxVal = Number.isFinite(max) ? max : 1;
+
+      const counts = histogram(values, HIST_BINS, minVal, maxVal);
+      const maxCount = Math.max(...counts, 1);
+
+      ctx.save();
+      ctx.translate(padding.left, padding.top);
+      ctx.strokeStyle = '#d7d1c4';
+      ctx.lineWidth = 1;
+
+      ctx.beginPath();
+      ctx.moveTo(0, height);
+      ctx.lineTo(width, height);
+      ctx.stroke();
+
+      if (values.length) {
+        ctx.fillStyle = color;
+        const barWidth = width / HIST_BINS;
+        counts.forEach((count, i) => {
+          const barHeight = (count / maxCount) * (height - 4);
+          ctx.fillRect(i * barWidth + 1, height - barHeight, barWidth - 2, barHeight);
+        });
+      }
+
+      if (overlayNormal) {
+        const { mean, sd } = overlayNormal;
+        ctx.strokeStyle = '#d04e16';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        const steps = 160;
+        for (let i = 0; i <= steps; i += 1) {
+          const x = minVal + (i / steps) * (maxVal - minVal);
+          const pdf = (1 / (sd * Math.sqrt(2 * Math.PI))) * Math.exp(-0.5 * ((x - mean) / sd) ** 2);
+          const scaled = (pdf / overlayNormal.maxPdf) * (height - 6);
+          const px = (i / steps) * width;
+          const py = height - scaled;
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.stroke();
+      }
+
+      ctx.fillStyle = '#6b6258';
+      ctx.font = '12px "IBM Plex Sans", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(minVal.toFixed(2), 0, height + 22);
+      ctx.fillText(maxVal.toFixed(2), width, height + 22);
+
+      if (title) {
+        ctx.textAlign = 'left';
+        ctx.fillText(title, 0, -6);
+      }
+
+      ctx.restore();
+    }
+
+    function drawMiddleBase() {
+      midCtx.clearRect(0, 0, midCanvas.width, midCanvas.height);
+      const padding = { left: 50, right: 20, top: 18, bottom: 26 };
+      const width = midCanvas.width - padding.left - padding.right;
+      const height = midCanvas.height - padding.top - padding.bottom;
+      midCtx.save();
+      midCtx.translate(padding.left, padding.top);
+      midCtx.strokeStyle = '#d7d1c4';
+      midCtx.lineWidth = 1;
+      midCtx.beginPath();
+      midCtx.moveTo(0, height);
+      midCtx.lineTo(width, height);
+      midCtx.stroke();
+      midCtx.restore();
+    }
+
+    function valueToX(value, canvas, min, max) {
+      const padding = { left: 50, right: 20 };
+      const width = canvas.width - padding.left - padding.right;
+      const span = max - min || 1;
+      const t = (value - min) / span;
+      return padding.left + Math.min(1, Math.max(0, t)) * width;
+    }
+
+    function drawCustomPopulation() {
+      ensureCustomHeights();
+      const padding = { left: 50, right: 20, top: 20, bottom: 34 };
+      const width = popCanvas.width - padding.left - padding.right;
+      const height = popCanvas.height - padding.top - padding.bottom;
+      const maxHeight = Math.max(...customHeights, 1);
+
+      popCtx.clearRect(0, 0, popCanvas.width, popCanvas.height);
+      popCtx.save();
+      popCtx.translate(padding.left, padding.top);
+      popCtx.strokeStyle = '#d7d1c4';
+      popCtx.lineWidth = 1;
+      popCtx.beginPath();
+      popCtx.moveTo(0, height);
+      popCtx.lineTo(width, height);
+      popCtx.stroke();
+
+      popCtx.fillStyle = '#0e7c86';
+      const barWidth = width / HIST_BINS;
+      customHeights.forEach((h, i) => {
+        const barHeight = (h / maxHeight) * (height - 4);
+        popCtx.fillRect(i * barWidth + 1, height - barHeight, barWidth - 2, barHeight);
+      });
+
+      popCtx.fillStyle = '#6b6258';
+      popCtx.font = '12px \"IBM Plex Sans\", sans-serif';
+      popCtx.textAlign = 'center';
+      popCtx.fillText(popRange.min.toFixed(2), 0, height + 22);
+      popCtx.fillText(popRange.max.toFixed(2), width, height + 22);
+      popCtx.restore();
+    }
+
+    function updateStatsDisplay() {
+      const n = Number(nRange.value);
+      const { mean, variance } = populationStats;
+      const sd = Math.sqrt(variance);
+      const se = sd / Math.sqrt(n);
+      statsEl.innerHTML =
+        '<strong>Current stats</strong>' +
+        `Samples drawn: ${meanSamples.length}<br />` +
+        `Population mean: ${mean.toFixed(3)}<br />` +
+        `Population SD: ${sd.toFixed(3)}<br />` +
+        `SE of mean: ${se.toFixed(3)}`;
+
+      if (lastSample) {
+        sampleInfoEl.innerHTML =
+          '<strong>Latest sample</strong>' +
+          `Mean: ${lastSample.mean.toFixed(3)}<br />` +
+          `Min/Max: ${lastSample.min.toFixed(3)} / ${lastSample.max.toFixed(3)}`;
+      } else {
+        sampleInfoEl.innerHTML =
+          '<strong>Latest sample</strong>Mean: —<br />Min/Max: —';
+      }
+    }
+
+    function resamplePopulation() {
+      const distName = distSelect.value;
+      if (distName === 'custom') {
+        popRange = { min: 0, max: 1 };
+        buildPopulationFromCustom();
+      } else {
+        const sampler = distSampler(distName);
+        population = Array.from({ length: POPULATION_SAMPLES }, sampler);
+        populationStats = computeStats(population);
+        popRange = { min: Math.min(...population), max: Math.max(...population) };
+      }
+      meanSamples = [];
+      lastSample = null;
+      drawPopulation();
+      drawMiddleBase();
+      drawMeans();
+      updateStatsDisplay();
+    }
+
+    function drawPopulation() {
+      if (distSelect.value === 'custom') {
+        drawCustomPopulation();
+      } else {
+        drawHistogram(popCtx, population, { color: '#0e7c86', min: popRange.min, max: popRange.max });
+      }
+    }
+
+    function drawMeans() {
+      const n = Number(nRange.value);
+      const { mean, variance } = populationStats;
+      const sd = Math.sqrt(variance);
+      const se = sd / Math.sqrt(n);
+      const rangeMin = popRange.min;
+      const rangeMax = popRange.max;
+
+      const overlay = {
+        mean,
+        sd: se,
+        maxPdf: (1 / (se * Math.sqrt(2 * Math.PI))),
+      };
+
+      if (meanSamples.length === 0) {
+        drawHistogram(meanCtx, [], {
+          color: '#0e7c86',
+          min: rangeMin,
+          max: rangeMax,
+          overlayNormal: overlay,
+        });
+        return;
+      }
+
+      drawHistogram(meanCtx, meanSamples, {
+        color: '#0e7c86',
+        min: rangeMin,
+        max: rangeMax,
+        overlayNormal: overlay,
+      });
+    }
+
+    function drawSample(batchSize) {
+      const sampler = distSampler(distSelect.value);
+      const n = Number(nRange.value);
+      for (let i = 0; i < batchSize; i += 1) {
+        let sum = 0;
+        let min = Infinity;
+        let max = -Infinity;
+        for (let j = 0; j < n; j += 1) {
+          const value = sampler();
+          sum += value;
+          if (value < min) min = value;
+          if (value > max) max = value;
+        }
+        const mean = sum / n;
+        meanSamples.push(mean);
+        lastSample = { mean, min, max };
+      }
+      drawMeans();
+      updateStatsDisplay();
+    }
+
+    function setControlsDisabled(disabled) {
+      drawOneBtn.disabled = disabled;
+      drawBatchBtn.disabled = disabled;
+      nRange.disabled = disabled;
+      distSelect.disabled = disabled;
+    }
+
+    function animateMiddle(sampleValues, onComplete) {
+      const padding = { left: 50, right: 20, top: 18, bottom: 26 };
+      const height = midCanvas.height - padding.top - padding.bottom;
+      const boxSize = 10;
+      const gap = 2;
+      const targetBase = padding.top + height - boxSize;
+      const span = popRange.max - popRange.min || 1;
+      const binWidth = span / HIST_BINS;
+      const binCounts = new Array(HIST_BINS).fill(0);
+
+      middleBoxes = sampleValues.map((value) => {
+        const rawIdx = Math.floor((value - popRange.min) / binWidth);
+        const idx = Math.max(0, Math.min(HIST_BINS - 1, rawIdx));
+        const stackLevel = binCounts[idx]++;
+        const stackY = targetBase - stackLevel * (boxSize + gap);
+        const binCenterValue = popRange.min + (idx + 0.5) * binWidth;
+        return {
+          x: valueToX(binCenterValue, midCanvas, popRange.min, popRange.max),
+          y: padding.top - 20 - Math.random() * 40,
+          vy: 0,
+          targetY: stackY,
+        };
+      });
+
+      const step = () => {
+        midCtx.clearRect(0, 0, midCanvas.width, midCanvas.height);
+        midCtx.save();
+        midCtx.translate(0, 0);
+        drawMiddleBase();
+        let done = true;
+        middleBoxes.forEach((box) => {
+          box.vy += 0.7;
+          box.y += box.vy;
+          if (box.y >= box.targetY) {
+            box.y = box.targetY;
+          } else {
+            done = false;
+          }
+          midCtx.fillStyle = '#0e7c86';
+          midCtx.fillRect(box.x - boxSize / 2, box.y - boxSize / 2, boxSize, boxSize);
+        });
+        midCtx.restore();
+        if (done) {
+          middleAnimFrame = null;
+          onComplete();
+        } else {
+          middleAnimFrame = requestAnimationFrame(step);
+        }
+      };
+      step();
+    }
+
+    function animateMeanDrop(meanValue, onComplete) {
+      const padding = { left: 50, right: 20, top: 20, bottom: 34 };
+      const height = meanCanvas.height - padding.top - padding.bottom;
+      const targetY = padding.top + height - 12;
+      const { mean, variance } = populationStats;
+      const sd = Math.sqrt(variance);
+      const se = sd / Math.sqrt(Number(nRange.value));
+      const x = valueToX(meanValue, meanCanvas, popRange.min, popRange.max);
+      meanDrop = { x, y: padding.top - 24, vy: 0 };
+
+      const step = () => {
+        drawMeans();
+        meanDrop.vy += 0.8;
+        meanDrop.y += meanDrop.vy;
+        if (meanDrop.y >= targetY) {
+          meanDrop.y = targetY;
+        }
+        meanCtx.save();
+        meanCtx.fillStyle = '#d04e16';
+        meanCtx.fillRect(meanDrop.x - 6, meanDrop.y - 6, 12, 12);
+        meanCtx.restore();
+        if (meanDrop.y >= targetY) {
+          meanAnimFrame = null;
+          onComplete();
+        } else {
+          meanAnimFrame = requestAnimationFrame(step);
+        }
+      };
+      step();
+    }
+
+    function drawSampleAnimated() {
+      if (animating) return;
+      animating = true;
+      setControlsDisabled(true);
+      drawMiddleBase();
+      const sampler = distSampler(distSelect.value);
+      const n = Number(nRange.value);
+      const sampleValues = [];
+      let sum = 0;
+      let min = Infinity;
+      let max = -Infinity;
+      for (let i = 0; i < n; i += 1) {
+        const value = sampler();
+        sampleValues.push(value);
+        sum += value;
+        if (value < min) min = value;
+        if (value > max) max = value;
+      }
+      const mean = sum / n;
+      lastSample = { mean, min, max };
+
+      animateMiddle(sampleValues, () => {
+        animateMeanDrop(mean, () => {
+          meanSamples.push(mean);
+          drawMeans();
+          updateStatsDisplay();
+          animating = false;
+          setControlsDisabled(false);
+        });
+      });
+    }
+
+    function stopAnimations() {
+      if (middleAnimFrame) cancelAnimationFrame(middleAnimFrame);
+      if (meanAnimFrame) cancelAnimationFrame(meanAnimFrame);
+      middleAnimFrame = null;
+      meanAnimFrame = null;
+      animating = false;
+      setControlsDisabled(false);
+      drawMiddleBase();
+    }
+
+    function toggleAuto() {
+      if (autoTimer) {
+        clearInterval(autoTimer);
+        autoTimer = null;
+        toggleAutoBtn.textContent = 'Auto: Off';
+        return;
+      }
+      toggleAutoBtn.textContent = 'Auto: On';
+      autoTimer = setInterval(() => {
+        drawSample(Math.max(5, Math.floor(Number(batchRange.value) / 4)));
+      }, 220);
+    }
+
+    distSelect.addEventListener('change', () => {
+      stopAnimations();
+      resamplePopulation();
+    });
+
+    function updateCustomAtEvent(event) {
+      if (distSelect.value !== 'custom') return;
+      ensureCustomHeights();
+      popRange = { min: 0, max: 1 };
+      const rect = popCanvas.getBoundingClientRect();
+      const x = ((event.clientX - rect.left) / rect.width) * popCanvas.width;
+      const y = ((event.clientY - rect.top) / rect.height) * popCanvas.height;
+      const padding = { left: 50, right: 20, top: 20, bottom: 34 };
+      const width = popCanvas.width - padding.left - padding.right;
+      const height = popCanvas.height - padding.top - padding.bottom;
+      if (x < padding.left || x > padding.left + width || y < padding.top || y > padding.top + height) return;
+      const binWidth = width / HIST_BINS;
+      const idx = Math.max(0, Math.min(HIST_BINS - 1, Math.floor((x - padding.left) / binWidth)));
+      const normalized = 1 - (y - padding.top) / height;
+      customHeights[idx] = Math.max(0, Math.min(1, normalized));
+      customCdf = null;
+      buildPopulationFromCustom();
+      meanSamples = [];
+      lastSample = null;
+      drawPopulation();
+      drawMiddleBase();
+      drawMeans();
+      updateStatsDisplay();
+    }
+
+    popCanvas.addEventListener('click', updateCustomAtEvent);
+
+    popCanvas.addEventListener('pointerdown', (event) => {
+      if (distSelect.value !== 'custom') return;
+      isDrawingCustom = true;
+      popCanvas.setPointerCapture(event.pointerId);
+      updateCustomAtEvent(event);
+    });
+
+    popCanvas.addEventListener('pointermove', (event) => {
+      if (!isDrawingCustom) return;
+      updateCustomAtEvent(event);
+    });
+
+    popCanvas.addEventListener('pointerup', (event) => {
+      if (!isDrawingCustom) return;
+      isDrawingCustom = false;
+      popCanvas.releasePointerCapture(event.pointerId);
+    });
+
+    popCanvas.addEventListener('pointerleave', () => {
+      isDrawingCustom = false;
+    });
+
+    nRange.addEventListener('input', () => {
+      nValue.textContent = nRange.value;
+      drawMeans();
+      updateStatsDisplay();
+    });
+
+    batchRange.addEventListener('input', () => {
+      batchValue.textContent = batchRange.value;
+    });
+
+    drawOneBtn.addEventListener('click', () => {
+      drawSampleAnimated();
+    });
+
+    drawBatchBtn.addEventListener('click', () => {
+      if (animating) return;
+      drawSample(Number(batchRange.value));
+    });
+
+    toggleAutoBtn.addEventListener('click', toggleAuto);
+
+    resetBtn.addEventListener('click', () => {
+      stopAnimations();
+      meanSamples = [];
+      lastSample = null;
+      drawMeans();
+      updateStatsDisplay();
+    });
+
+    nValue.textContent = nRange.value;
+    batchValue.textContent = batchRange.value;
+    resamplePopulation();
+  </script>
+</body>
+</html>
