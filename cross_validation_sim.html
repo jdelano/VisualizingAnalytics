@@ -1,0 +1,1039 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cross-Validation Flow Studio</title>
+  <style>
+    :root {
+      --ink: #1a1712;
+      --muted: #6f665b;
+      --bg: #f6f0e6;
+      --paper: #fffaf1;
+      --accent: #1f7a6f;
+      --accent-2: #e46b3c;
+      --accent-3: #2b4d7d;
+      --line: #e2d6c6;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Work Sans", "Trebuchet MS", sans-serif;
+      color: var(--ink);
+      background: radial-gradient(circle at 20% 10%, #fff 0%, #f7f1e8 42%, #efe6d8 100%);
+      min-height: 100vh;
+    }
+
+    header {
+      padding: 24px 28px 8px;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 28px;
+      font-family: "DM Serif Display", "Georgia", serif;
+      letter-spacing: 0.4px;
+    }
+
+    header p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+      max-width: 680px;
+      line-height: 1.5;
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 320px;
+      gap: 18px;
+      padding: 10px 28px 28px;
+    }
+
+    .card {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: 0 14px 32px rgba(40, 30, 18, 0.12);
+    }
+
+    .viz {
+      padding: 16px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .canvas-shell {
+      position: relative;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid #e7ddcf;
+      background: linear-gradient(180deg, #fffdf8 0%, #f5efe4 100%);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 420px;
+    }
+
+    #timelineCanvas {
+      height: 190px;
+    }
+
+    .overlay-label {
+      position: absolute;
+      top: 14px;
+      left: 16px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.85);
+      border: 1px solid #e2d6c6;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      font-weight: 600;
+    }
+
+    .panel {
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+      align-content: start;
+    }
+
+    .panel h2 {
+      margin: 0;
+      font-size: 15px;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+    }
+
+    .metric {
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid #e7ddcf;
+      background: #fff;
+      font-size: 13px;
+      display: grid;
+      gap: 4px;
+    }
+
+    .metric strong {
+      font-size: 11px;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .controls {
+      display: grid;
+      gap: 10px;
+    }
+
+    .control {
+      display: grid;
+      gap: 6px;
+      font-size: 12px;
+    }
+
+    .control label {
+      display: flex;
+      justify-content: space-between;
+      font-weight: 600;
+    }
+
+    .control output {
+      font-variant-numeric: tabular-nums;
+      color: var(--accent-3);
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent-3);
+    }
+
+    .buttons {
+      display: grid;
+      gap: 8px;
+    }
+
+    button {
+      border: none;
+      padding: 10px 12px;
+      border-radius: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 13px;
+      font-family: inherit;
+      background: var(--accent);
+      color: #fff;
+      transition: transform 0.15s ease, box-shadow 0.2s ease;
+      box-shadow: 0 8px 18px rgba(31, 122, 111, 0.25);
+    }
+
+    button.secondary {
+      background: #1f1b16;
+      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+    }
+
+    .legend {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .dot.train { background: var(--accent); }
+    .dot.val { background: var(--accent-2); }
+    .dot.model { background: var(--accent-3); }
+
+    .note {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    @media (max-width: 980px) {
+      main { grid-template-columns: 1fr; }
+      canvas { height: 340px; }
+      #timelineCanvas { height: 180px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Cross-Validation Flow Studio</h1>
+    <p>Five folds cycle through a shared path: training blocks merge, flow into the model, and leave a line behind. Then the validation fold arrives, tests the model, and updates the error bars.</p>
+  </header>
+
+  <main>
+    <section class="card viz">
+      <div class="canvas-shell">
+        <div class="overlay-label" id="foldLabel">Fold 1 of 5</div>
+        <canvas id="scatterCanvas"></canvas>
+      </div>
+      <div class="canvas-shell">
+        <div class="overlay-label">Validation error by fold</div>
+        <canvas id="timelineCanvas"></canvas>
+      </div>
+      <div class="legend">
+        <span><i class="dot train"></i>Training points</span>
+        <span><i class="dot val"></i>Validation points</span>
+        <span><i class="dot model"></i>Model line</span>
+      </div>
+    </section>
+
+    <aside class="card panel">
+      <h2>Controls</h2>
+      <div class="metric">
+        <strong>Current fold</strong>
+        <div id="currentFold">1 of 5</div>
+      </div>
+      <div class="metric">
+        <strong>Validation error</strong>
+        <div id="foldError">--</div>
+      </div>
+      <div class="metric">
+        <strong>Average error</strong>
+        <div id="avgError">--</div>
+      </div>
+
+      <div class="controls">
+        <div class="control">
+          <label for="speedSlider">Playback speed <output id="speedOut">1.0x</output></label>
+          <input id="speedSlider" type="range" min="0.5" max="2" step="0.1" value="1" />
+        </div>
+      </div>
+
+      <div class="buttons">
+        <button id="runBtn">Play</button>
+        <button class="secondary" id="pauseBtn">Step advance</button>
+        <button class="secondary" id="resetBtn">Reset cycle</button>
+      </div>
+
+      <p class="note">Each fold runs through the same flow: training data enters, fits a line, exits, then validation data arrives to test the line and update the error bars.</p>
+    </aside>
+  </main>
+
+  <script>
+    const scatterCanvas = document.getElementById('scatterCanvas');
+    const timelineCanvas = document.getElementById('timelineCanvas');
+    const foldLabel = document.getElementById('foldLabel');
+    const currentFold = document.getElementById('currentFold');
+    const foldError = document.getElementById('foldError');
+    const avgError = document.getElementById('avgError');
+
+    const speedSlider = document.getElementById('speedSlider');
+    const speedOut = document.getElementById('speedOut');
+    const runBtn = document.getElementById('runBtn');
+    const pauseBtn = document.getElementById('pauseBtn');
+    const resetBtn = document.getElementById('resetBtn');
+
+    const ctx = scatterCanvas.getContext('2d');
+    const tctx = timelineCanvas.getContext('2d');
+
+    const colors = {
+      train: '#1f7a6f',
+      val: '#e46b3c',
+      model: '#2b4d7d',
+      grid: '#e7ddcf',
+      ink: '#1a1712'
+    };
+
+    const state = {
+      points: [],
+      folds: [],
+      foldOfIndex: [],
+      foldRank: [],
+      foldIndex: 0,
+      phase: 0,
+      speed: 1,
+      running: true,
+      foldErrors: Array(5).fill(null),
+      foldProgress: Array(5).fill(0),
+      foldLines: Array(5).fill(null),
+      coeffs: { m: 0, b: 0 },
+      lastTime: 0,
+      stepAdvance: false
+    };
+
+    const phases = [
+      { name: 'train', duration: 1.4 },
+      { name: 'validate', duration: 1.8 },
+      { name: 'validate-exit', duration: 2.2 },
+      { name: 'reset', duration: 1.1 }
+    ];
+
+    function randNormal() {
+      let u = 0, v = 0;
+      while (u === 0) u = Math.random();
+      while (v === 0) v = Math.random();
+      return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+    }
+
+    function trueFunction(x) {
+      return 0.2 + 0.6 * x;
+    }
+
+    function generateData() {
+      const points = [];
+      for (let i = 0; i < 60; i += 1) {
+        const x = Math.random();
+        const y = trueFunction(x) + 0.15 * randNormal();
+        points.push({ x, y: Math.max(0.05, Math.min(0.95, y)) });
+      }
+      points.sort((a, b) => a.x - b.x);
+      state.points = points;
+    }
+
+    function shuffleIndices(n) {
+      const arr = Array.from({ length: n }, (_, i) => i);
+      for (let i = n - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    function makeFolds() {
+      const indices = shuffleIndices(state.points.length);
+      const folds = Array.from({ length: 5 }, () => []);
+      indices.forEach((idx, i) => {
+        folds[i % 5].push(idx);
+      });
+      state.folds = folds;
+      state.foldOfIndex = Array(state.points.length).fill(0);
+      state.foldRank = Array(state.points.length).fill(0);
+      folds.forEach((fold, fi) => {
+        fold.forEach((idx, pos) => {
+          state.foldOfIndex[idx] = fi;
+          state.foldRank[idx] = pos;
+        });
+      });
+      state.foldErrors = Array(5).fill(null);
+      state.foldProgress = Array(5).fill(0);
+      state.foldLines = Array(5).fill(null);
+      state.foldIndex = 0;
+      state.phase = 0;
+      updateModel();
+    }
+
+    function getTrainPoints(foldIdx) {
+      const valSet = new Set(state.folds[foldIdx]);
+      return state.points.filter((_, i) => !valSet.has(i));
+    }
+
+    function getValPoints(foldIdx) {
+      const valSet = new Set(state.folds[foldIdx]);
+      return state.points.filter((_, i) => valSet.has(i));
+    }
+
+    function getFoldPoints(foldIdx) {
+      const fold = state.folds[foldIdx] || [];
+      return fold.map(i => state.points[i]);
+    }
+
+    function getTrainIndices(foldIdx) {
+      const valSet = new Set(state.folds[foldIdx]);
+      return state.points.map((_, i) => i).filter(i => !valSet.has(i));
+    }
+
+    function fitLine(points) {
+      const n = points.length;
+      const meanX = points.reduce((s, p) => s + p.x, 0) / n;
+      const meanY = points.reduce((s, p) => s + p.y, 0) / n;
+      let num = 0;
+      let den = 0;
+      points.forEach(p => {
+        num += (p.x - meanX) * (p.y - meanY);
+        den += (p.x - meanX) * (p.x - meanX);
+      });
+      const m = den === 0 ? 0 : num / den;
+      const b = meanY - m * meanX;
+      return { m, b };
+    }
+
+    function predict(line, x) {
+      return line.m * x + line.b;
+    }
+
+    function mse(points, line) {
+      return points.reduce((sum, p) => {
+        const err = predict(line, p.x) - p.y;
+        return sum + err * err;
+      }, 0) / points.length;
+    }
+
+    function updateModel() {
+      const train = getTrainPoints(state.foldIndex);
+      state.coeffs = fitLine(train);
+    }
+
+    function averageError() {
+      const vals = state.foldErrors.filter(v => v !== null);
+      if (!vals.length) return null;
+      return vals.reduce((a, b) => a + b, 0) / vals.length;
+    }
+
+    function advancePhase() {
+      const prevName = phases[state.phase].name;
+      state.phase += 1;
+      if (state.phase >= phases.length) state.phase = 0;
+      if (prevName === 'train') {
+        state.foldLines[state.foldIndex] = { ...state.coeffs };
+      }
+      if (prevName === 'validate') {
+        const val = getValPoints(state.foldIndex);
+        const err = mse(val, state.coeffs);
+        state.foldErrors[state.foldIndex] = err;
+        state.foldProgress[state.foldIndex] = 1;
+      }
+      if (prevName === 'reset') {
+        state.foldIndex = (state.foldIndex + 1) % 5;
+        if (state.foldIndex === 0) {
+          state.foldLines = Array(5).fill(null);
+        }
+        updateModel();
+      }
+    }
+
+    function easeInOut(t) {
+      return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+    }
+
+    function resizeCanvas(canvas) {
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = Math.round(rect.width * dpr);
+      canvas.height = Math.round(rect.height * dpr);
+      return dpr;
+    }
+
+    let scatterDpr = 1;
+    let timelineDpr = 1;
+
+    function resizeAll() {
+      scatterDpr = resizeCanvas(scatterCanvas);
+      timelineDpr = resizeCanvas(timelineCanvas);
+    }
+
+    function drawScatter(time, phaseT) {
+      const w = scatterCanvas.width / scatterDpr;
+      const h = scatterCanvas.height / scatterDpr;
+      ctx.save();
+      ctx.scale(scatterDpr, scatterDpr);
+      ctx.clearRect(0, 0, w, h);
+
+      const pad = 40;
+      const stackX = 30;
+      const stackW = 90;
+      const stackY = 70;
+      const stackH = h - 140;
+      const gap = 10;
+      const blockH = (stackH - gap * 4) / 5;
+
+      const plotX = stackX + stackW + 40;
+      const plotY = 60;
+      const plotW = w - plotX - 140;
+      const plotH = h - 120;
+
+      const exitX = plotX + plotW + 30;
+      const exitW = 90;
+
+      ctx.fillStyle = '#fffdf8';
+      ctx.fillRect(0, 0, w, h);
+
+      ctx.strokeStyle = colors.grid;
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= 4; i += 1) {
+        const gx = plotX + (plotW / 4) * i;
+        const gy = plotY + (plotH / 4) * i;
+        ctx.beginPath();
+        ctx.moveTo(gx, plotY);
+        ctx.lineTo(gx, plotY + plotH);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(plotX, gy);
+        ctx.lineTo(plotX + plotW, gy);
+        ctx.stroke();
+      }
+
+      const stackRects = [];
+      for (let i = 0; i < 5; i += 1) {
+        const y = stackY + i * (blockH + gap);
+        stackRects.push({ x: stackX, y, w: stackW, h: blockH });
+      }
+
+      const phase = phases[state.phase].name;
+      const t = easeInOut(phaseT);
+
+      const trainEntryRect = {
+        x: plotX + 6,
+        y: plotY + plotH * 0.08,
+        w: plotW * 0.18,
+        h: plotH * 0.22
+      };
+      const trainTarget = {
+        x: plotX + 10,
+        y: plotY + plotH * 0.15,
+        w: plotW * 0.2,
+        h: plotH * 0.3
+      };
+
+      const valBaseRect = stackRects[state.foldIndex];
+      const testRect = {
+        x: valBaseRect.x,
+        y: valBaseRect.y,
+        w: valBaseRect.w,
+        h: valBaseRect.h
+      };
+      const testTarget = {
+        x: plotX + plotW * 0.62,
+        y: plotY + plotH * 0.58,
+        w: valBaseRect.w,
+        h: valBaseRect.h
+      };
+
+      const exitRect = {
+        x: exitX + 10,
+        y: plotY + plotH * 0.4,
+        w: exitW - 20,
+        h: plotH * 0.22
+      };
+
+      function lerp(a, b, tt) { return a + (b - a) * tt; }
+      function lerpRect(a, b, tt) {
+        return {
+          x: lerp(a.x, b.x, tt),
+          y: lerp(a.y, b.y, tt),
+          w: lerp(a.w, b.w, tt),
+          h: lerp(a.h, b.h, tt)
+        };
+      }
+
+      const phaseName = phases[state.phase].name;
+      const trainPoints = getTrainPoints(state.foldIndex);
+      const valPoints = getValPoints(state.foldIndex);
+
+      const isTrainPhase = phaseName === 'train';
+      const isValidatePhase = phaseName === 'validate';
+      const isValidateExit = phaseName === 'validate-exit';
+      const isResetPhase = phaseName === 'reset';
+
+      const moveT = Math.min(1, Math.max(0, (t - 0.05) / 0.35));
+      const scatterT = Math.min(1, Math.max(0, (t - 0.35) / 0.5));
+      const lineT = Math.min(1, Math.max(0, (t - 0.85) / 0.15));
+
+      const returnT = Math.min(1, Math.max(0, t / 0.5));
+      const moveRightT = Math.min(1, Math.max(0, (t - 0.6) / 0.4));
+      const valEnterT = Math.min(1, Math.max(0, (t - 0.78) / 0.12));
+      const valPauseT = Math.min(1, Math.max(0, (t - 0.9) / 0.05));
+      const valScatterT = Math.min(1, Math.max(0, (t - 0.95) / 0.05));
+      const valHoldT = Math.min(1, Math.max(0, (t - 0.98) / 0.02));
+      const valReturnT = Math.min(1, Math.max(0, (t - 0.45) / 0.4));
+      const valMoveRightT = Math.min(1, Math.max(0, (t - 0.85) / 0.15));
+
+      const resetT = Math.min(1, Math.max(0, t));
+
+      function getGrid(rect) {
+        const radius = 4.5;
+        const padX = radius + 4;
+        const padY = radius + 6;
+        const usableW = Math.max(1, rect.w - padX * 2);
+        const usableH = Math.max(1, rect.h - padY * 2);
+        const maxCols = Math.max(3, Math.floor(usableW / (radius * 2.2)) + 1);
+        const maxRows = Math.max(2, Math.floor(usableH / (radius * 2.2)) + 1);
+        const cols = Math.min(6, maxCols);
+        const rows = Math.min(3, maxRows);
+        return { radius, padX, padY, usableW, usableH, cols, rows };
+      }
+
+      function gridPosition(rect, idx, grid) {
+        const cx = idx % grid.cols;
+        const cy = Math.floor(idx / grid.cols) % grid.rows;
+        const x = rect.x + grid.padX + grid.usableW * (grid.cols === 1 ? 0.5 : cx / (grid.cols - 1));
+        const y = rect.y + grid.padY + grid.usableH * (grid.rows === 1 ? 0.5 : cy / (grid.rows - 1));
+        return { x, y };
+      }
+
+      function drawDotsInBox(points, rect, color, alpha = 0.9) {
+        const grid = getGrid(rect);
+        points.slice(0, grid.cols * grid.rows).forEach((p, idx) => {
+          const pos = gridPosition(rect, idx, grid);
+          ctx.beginPath();
+          ctx.fillStyle = color;
+          ctx.globalAlpha = alpha;
+          ctx.arc(pos.x, pos.y, grid.radius, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = 1;
+          ctx.strokeStyle = '#1a1712';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        });
+      }
+
+      const showLeftStack = !(isTrainPhase || isValidatePhase || isValidateExit || isResetPhase);
+      if (showLeftStack) {
+        stackRects.forEach((rect, i) => {
+          ctx.fillStyle = i === state.foldIndex ? 'rgba(228, 107, 60, 0.8)' : 'rgba(31, 122, 111, 0.4)';
+          ctx.strokeStyle = '#1a1712';
+          ctx.lineWidth = 1;
+          ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+          ctx.strokeRect(rect.x, rect.y, rect.w, rect.h);
+          const foldPoints = getFoldPoints(i);
+          const dotColor = i === state.foldIndex ? colors.val : colors.train;
+          drawDotsInBox(foldPoints, rect, dotColor);
+        });
+      }
+
+      if (isTrainPhase) {
+        const rect = stackRects[state.foldIndex];
+        ctx.fillStyle = 'rgba(228, 107, 60, 0.8)';
+        ctx.strokeStyle = '#1a1712';
+        ctx.lineWidth = 1;
+        ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+        ctx.strokeRect(rect.x, rect.y, rect.w, rect.h);
+        drawDotsInBox(getFoldPoints(state.foldIndex), rect, colors.val);
+      }
+
+      const trainRectsByFold = Array.from({ length: 5 }, () => null);
+      const trainFolds = [0, 1, 2, 3, 4].filter(i => i !== state.foldIndex);
+      trainFolds.forEach((foldId, idx) => {
+        const base = stackRects[foldId];
+        const target = {
+          x: trainEntryRect.x,
+          y: trainEntryRect.y + idx * (blockH + gap),
+          w: trainEntryRect.w,
+          h: blockH
+        };
+        const exitTarget = {
+          x: exitRect.x,
+          y: base.y,
+          w: base.w,
+          h: base.h
+        };
+        let moving = base;
+        if (isTrainPhase) moving = lerpRect(base, target, moveT);
+        if (isValidatePhase) {
+          if (returnT < 1) moving = target;
+          else moving = lerpRect(target, exitTarget, moveRightT);
+        }
+        if (isValidateExit) moving = exitTarget;
+        if (isResetPhase) moving = lerpRect(exitTarget, base, resetT);
+        trainRectsByFold[foldId] = moving;
+        if (isTrainPhase || isValidatePhase || isValidateExit || isResetPhase) {
+          ctx.fillStyle = 'rgba(31, 122, 111, 0.5)';
+          ctx.strokeStyle = '#1a1712';
+          ctx.lineWidth = 1;
+          ctx.fillRect(moving.x, moving.y, moving.w, moving.h);
+          ctx.strokeRect(moving.x, moving.y, moving.w, moving.h);
+          const hideReturningTrainDots = (isValidatePhase && returnT < 1);
+          if ((!isTrainPhase || scatterT === 0) && !hideReturningTrainDots) {
+            drawDotsInBox(getFoldPoints(foldId), moving, colors.train);
+          }
+        }
+      });
+
+      const trainExitBox = {
+        x: plotX + plotW * 0.08,
+        y: plotY + plotH * 0.2,
+        w: plotW * 0.18,
+        h: plotH * 0.32
+      };
+
+      let testBox = testRect;
+      if (isTrainPhase) testBox = testRect;
+      if (isValidatePhase) {
+        testBox = lerpRect(testRect, testTarget, valEnterT);
+        if (valEnterT >= 1) testBox = testTarget;
+      }
+      if (isValidateExit) {
+        if (valReturnT < 1) {
+          testBox = testTarget;
+        } else {
+          testBox = lerpRect(testTarget, {
+            x: exitRect.x,
+            y: valBaseRect.y,
+            w: valBaseRect.w,
+            h: valBaseRect.h
+          }, valMoveRightT);
+        }
+      }
+      if (isResetPhase) testBox = lerpRect({
+        x: exitRect.x,
+        y: valBaseRect.y,
+        w: valBaseRect.w,
+        h: valBaseRect.h
+      }, testRect, resetT);
+
+      if (isTrainPhase || isValidatePhase || isValidateExit || isResetPhase) {
+        ctx.fillStyle = 'rgba(228, 107, 60, 0.35)';
+        ctx.strokeStyle = '#1a1712';
+        ctx.lineWidth = 1.2;
+        ctx.fillRect(testBox.x, testBox.y, testBox.w, testBox.h);
+        ctx.strokeRect(testBox.x, testBox.y, testBox.w, testBox.h);
+        const hideReturningValDots = (isValidateExit && valReturnT < 1);
+        const hideScatterValDots = (isValidatePhase && valScatterT > 0);
+        if (!hideScatterValDots && !hideReturningValDots) {
+          drawDotsInBox(valPoints, testBox, colors.val);
+        }
+      }
+
+      function pointToCanvas(p) {
+        return {
+          x: plotX + p.x * plotW,
+          y: plotY + (1 - p.y) * plotH
+        };
+      }
+
+      function drawPointFromBoxToPlot(point, rect, rank, blendTo, color, alpha) {
+        const grid = getGrid(rect);
+        const start = gridPosition(rect, rank, grid);
+        const target = pointToCanvas(point);
+        const x = lerp(start.x, target.x, blendTo);
+        const y = lerp(start.y, target.y, blendTo);
+        ctx.beginPath();
+        ctx.fillStyle = color;
+        ctx.globalAlpha = alpha;
+        ctx.arc(x, y, grid.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = '#1a1712';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+
+      function drawPointFromPlotToBox(point, rect, rank, blendTo, color, alpha) {
+        const grid = getGrid(rect);
+        const start = pointToCanvas(point);
+        const target = gridPosition(rect, rank, grid);
+        const x = lerp(start.x, target.x, blendTo);
+        const y = lerp(start.y, target.y, blendTo);
+        ctx.beginPath();
+        ctx.fillStyle = color;
+        ctx.globalAlpha = alpha;
+        ctx.arc(x, y, grid.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = '#1a1712';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+
+
+      if (isTrainPhase) {
+        const trainIndices = getTrainIndices(state.foldIndex);
+        if (scatterT === 0) {
+          trainIndices.forEach(i => {
+            const foldId = state.foldOfIndex[i];
+            const origin = trainRectsByFold[foldId];
+            drawPointFromBoxToPlot(state.points[i], origin, state.foldRank[i], 0, colors.train, 1);
+          });
+        } else {
+          trainIndices.forEach(i => {
+            const foldId = state.foldOfIndex[i];
+            const origin = trainRectsByFold[foldId];
+            drawPointFromBoxToPlot(state.points[i], origin, state.foldRank[i], scatterT, colors.train, 1);
+          });
+        }
+      }
+
+      if (isValidatePhase) {
+        const trainIndices = getTrainIndices(state.foldIndex);
+        if (returnT < 1) {
+          trainIndices.forEach(i => {
+            const foldId = state.foldOfIndex[i];
+            const origin = trainRectsByFold[foldId];
+            drawPointFromPlotToBox(state.points[i], origin, state.foldRank[i], returnT, colors.train, 1);
+          });
+        }
+        if (valScatterT > 0) {
+          const valIndices = state.folds[state.foldIndex] || [];
+          valIndices.forEach(i => {
+            drawPointFromBoxToPlot(state.points[i], testTarget, state.foldRank[i], valScatterT, colors.val, 1);
+          });
+        }
+      }
+
+      if (isValidateExit) {
+        if (valReturnT < 1) {
+          const valIndices = state.folds[state.foldIndex] || [];
+          valIndices.forEach(i => {
+            drawPointFromPlotToBox(state.points[i], testBox, state.foldRank[i], valReturnT, colors.val, 1);
+          });
+        }
+      }
+
+      if (isValidatePhase && valHoldT > 0) {
+        const valIndices = state.folds[state.foldIndex] || [];
+        valIndices.forEach(i => {
+          drawPointFromBoxToPlot(state.points[i], testTarget, state.foldRank[i], valScatterT, colors.val, 1);
+        });
+      }
+
+      const showCurrentLine = ['train', 'validate', 'validate-exit', 'reset'].includes(phaseName) && (!isTrainPhase || scatterT >= 1);
+      const drawLine = (coeffs, style) => {
+        ctx.beginPath();
+        for (let i = 0; i <= 120; i += 1) {
+          const x = i / 120;
+          const y = predict(coeffs, x);
+          const px = plotX + x * plotW;
+          const py = plotY + (1 - y) * plotH;
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.strokeStyle = style.color;
+        ctx.lineWidth = style.width;
+        ctx.globalAlpha = style.alpha;
+        ctx.setLineDash(style.dash);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.globalAlpha = 1;
+      };
+
+      state.foldLines.forEach((coeffs, i) => {
+        if (!coeffs) return;
+        if (i === state.foldIndex && showCurrentLine) return;
+        drawLine(coeffs, { color: colors.model, width: 2, alpha: 0.25, dash: [4, 6] });
+      });
+
+      if (showCurrentLine) {
+        const lineAlpha = phaseName === 'train' ? lineT : 1;
+        drawLine(state.coeffs, { color: colors.model, width: 4, alpha: 0.9 * lineAlpha + 0.1, dash: [] });
+      }
+
+      ctx.restore();
+    }
+
+    function drawTimeline(time) {
+      const w = timelineCanvas.width / timelineDpr;
+      const h = timelineCanvas.height / timelineDpr;
+      tctx.save();
+      tctx.scale(timelineDpr, timelineDpr);
+      tctx.clearRect(0, 0, w, h);
+
+      const pad = 24;
+      const width = w - pad * 2;
+      const height = h - pad * 2;
+      const foldW = width / 5;
+
+      tctx.fillStyle = '#fffaf4';
+      tctx.fillRect(0, 0, w, h);
+
+      const labelH = 48;
+      for (let i = 0; i < 5; i += 1) {
+        const x = pad + i * foldW + 6;
+        const y = pad + 6;
+        const boxW = foldW - 12;
+        const boxH = labelH;
+        tctx.fillStyle = '#f3ece1';
+        tctx.strokeStyle = '#e2d6c6';
+        tctx.fillRect(x, y, boxW, boxH);
+        tctx.strokeRect(x, y, boxW, boxH);
+        if (i === state.foldIndex) {
+          const sweep = 0.5 + 0.5 * Math.sin(time * 0.004);
+          tctx.fillStyle = `rgba(31, 122, 111, ${0.2 + 0.4 * sweep})`;
+          tctx.fillRect(x, y, boxW, boxH);
+        }
+        tctx.fillStyle = '#4b433a';
+        tctx.font = '12px "Work Sans", sans-serif';
+        tctx.textAlign = 'center';
+        tctx.textBaseline = 'middle';
+        tctx.fillText(`Fold ${i + 1}`, x + boxW / 2, y + boxH / 2);
+      }
+
+      const chartY = pad + labelH + 14;
+      const chartH = height - labelH - 22;
+      tctx.strokeStyle = '#e2d6c6';
+      tctx.beginPath();
+      tctx.moveTo(pad, chartY + chartH);
+      tctx.lineTo(pad + width, chartY + chartH);
+      tctx.stroke();
+
+      const maxErr = Math.max(...state.foldErrors.filter(e => e !== null), 0.05);
+      for (let i = 0; i < 5; i += 1) {
+        const err = state.foldErrors[i];
+        if (err === null) continue;
+        const progress = state.foldProgress[i] || 0;
+        const barH = (err / maxErr) * chartH * progress;
+        const x = pad + i * foldW + foldW * 0.2;
+        const barW = foldW * 0.6;
+        const y = chartY + chartH - barH;
+        tctx.fillStyle = i === state.foldIndex ? colors.val : colors.train;
+        tctx.globalAlpha = 0.85;
+        tctx.fillRect(x, y, barW, barH);
+        tctx.globalAlpha = 1;
+      }
+
+      const avg = averageError();
+      if (avg !== null) {
+        const currentProgress = state.foldProgress[state.foldIndex] || 0;
+        if (currentProgress < 1) {
+          tctx.restore();
+          return;
+        }
+        const avgY = chartY + chartH - (avg / maxErr) * chartH;
+        tctx.strokeStyle = colors.model;
+        tctx.lineWidth = 2;
+        tctx.setLineDash([6, 4]);
+        tctx.beginPath();
+        tctx.moveTo(pad, avgY);
+        tctx.lineTo(pad + width, avgY);
+        tctx.stroke();
+        tctx.setLineDash([]);
+        tctx.fillStyle = colors.model;
+        tctx.font = '11px "Work Sans", sans-serif';
+        tctx.textAlign = 'right';
+        tctx.fillText('avg', pad + width - 8, avgY - 6);
+      }
+
+      tctx.restore();
+    }
+
+    function updateMetrics() {
+      const foldNum = state.foldIndex + 1;
+      foldLabel.textContent = `Fold ${foldNum} of 5`;
+      currentFold.textContent = `${foldNum} of 5`;
+      const err = state.foldErrors[state.foldIndex];
+      foldError.textContent = err === null ? '--' : err.toFixed(3);
+      const avg = averageError();
+      avgError.textContent = avg === null ? '--' : avg.toFixed(3);
+    }
+
+    function loop(time) {
+      const delta = (time - state.lastTime) || 16;
+      state.lastTime = time;
+      const phaseDef = phases[state.phase];
+      const total = phaseDef.duration * 1000;
+
+      if (state.running || state.stepAdvance) {
+        state.phaseTime = (state.phaseTime || 0) + delta * state.speed;
+        if (state.phaseTime >= total) {
+          state.phaseTime = 0;
+          advancePhase();
+          if (state.stepAdvance) {
+            state.stepAdvance = false;
+            state.running = false;
+            runBtn.textContent = 'Play';
+          }
+        }
+      }
+
+      const phaseT = Math.min(1, (state.phaseTime || 0) / total);
+      if (phaseDef.name === 'validate') {
+        const progress = Math.max(0, (phaseT - 0.7) / 0.3);
+        if (state.foldErrors[state.foldIndex] === null) {
+          const val = getValPoints(state.foldIndex);
+          state.foldErrors[state.foldIndex] = mse(val, state.coeffs);
+        }
+        state.foldProgress[state.foldIndex] = Math.max(state.foldProgress[state.foldIndex], progress);
+      }
+
+      drawScatter(time, phaseT);
+      drawTimeline(time);
+      updateMetrics();
+      requestAnimationFrame(loop);
+    }
+
+    function bindControls() {
+      speedSlider.addEventListener('input', e => {
+        const sliderVal = Number(e.target.value);
+        state.speed = sliderVal * 0.5;
+        speedOut.textContent = `${sliderVal.toFixed(1)}x`;
+      });
+      runBtn.addEventListener('click', () => {
+        state.running = !state.running;
+        runBtn.textContent = state.running ? 'Pause' : 'Play';
+      });
+      pauseBtn.addEventListener('click', () => {
+        state.running = false;
+        runBtn.textContent = 'Play';
+        state.phaseTime = 0;
+        state.stepAdvance = true;
+      });
+      resetBtn.addEventListener('click', () => {
+        state.phase = 0;
+        state.phaseTime = 0;
+        state.foldIndex = 0;
+        state.foldErrors = Array(5).fill(null);
+        state.foldProgress = Array(5).fill(0);
+        state.foldLines = Array(5).fill(null);
+        state.stepAdvance = false;
+        updateModel();
+      });
+      const initialSpeed = Number(speedSlider.value);
+      state.speed = initialSpeed * 0.5;
+      runBtn.textContent = state.running ? 'Pause' : 'Play';
+      speedOut.textContent = `${initialSpeed.toFixed(1)}x`;
+    }
+
+    function init() {
+      resizeAll();
+      generateData();
+      makeFolds();
+      bindControls();
+      requestAnimationFrame(loop);
+    }
+
+    window.addEventListener('resize', resizeAll);
+    init();
+  </script>
+</body>
+</html>

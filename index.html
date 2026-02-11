@@ -688,6 +688,45 @@
           <div><strong>Equation</strong><br /><span class="equation">y = Σ β<sub>k</sub> x<sup>k</sup></span></div>
         </div>
       </div>
+      <div class="card card-split">
+        <div class="card-left">
+          <div class="card-text">
+            <span class="pill">Cross-Validation</span>
+            <h4>Cross-Validation Motion Lab</h4>
+            <p>Cycle through folds, watch the model refit, and track how validation error changes across splits.</p>
+            <a href="cross_validation_sim.html">Launch simulation →</a>
+          </div>
+          <div class="card-media">
+            <svg viewBox="8 8 104 74" aria-hidden="true">
+              <rect x="8" y="8" width="104" height="74" rx="8" fill="none" stroke="none"/>
+              <g transform="translate(-6 -4) scale(1.15)">
+                <rect x="18" y="18" width="18" height="18" fill="#0e7c86" opacity="0.6"/>
+                <rect x="38" y="18" width="18" height="18" fill="#e46b3c" opacity="0.7"/>
+                <rect x="58" y="18" width="18" height="18" fill="#0e7c86" opacity="0.6"/>
+                <rect x="78" y="18" width="18" height="18" fill="#0e7c86" opacity="0.6"/>
+                <rect x="18" y="40" width="78" height="24" fill="none" stroke="#1f1c18" stroke-width="1.4"/>
+                <line x1="24" y1="58" x2="42" y2="46" stroke="#d04e16" stroke-width="1.8"/>
+                <line x1="42" y1="46" x2="58" y2="50" stroke="#0e7c86" stroke-width="1.8"/>
+                <line x1="58" y1="50" x2="74" y2="40" stroke="#0e7c86" stroke-width="1.8"/>
+                <line x1="74" y1="40" x2="92" y2="44" stroke="#0e7c86" stroke-width="1.8"/>
+              </g>
+            </svg>
+          </div>
+        </div>
+        <div class="card-detail">
+          <div><strong>What you'll see</strong><br />Fold roles swap with each cycle; validation errors build a bar chart.</div>
+          <div><strong>Try this</strong><br />Increase folds and raise degree to watch variance spike.</div>
+          <div><strong>Tags</strong>
+            <div class="tag-row">
+              <span class="tag">Folds</span>
+              <span class="tag">Generalization</span>
+              <span class="tag">Validation</span>
+            </div>
+          </div>
+          <div><strong>Metrics</strong><br />Fold MSE • Avg MSE</div>
+          <div><strong>Equation</strong><br /><span class="equation">CV = (1/k) Σ MSE</span></div>
+        </div>
+      </div>
     </div>
   </section>
 
