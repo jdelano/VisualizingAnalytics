@@ -1,0 +1,816 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Hierarchical Clustering Studio</title>
+  <style>
+    :root {
+      --ink: #1a1712;
+      --muted: #6f665b;
+      --paper: #fffaf1;
+      --line: #e2d6c6;
+      --a: #1f7a6f;
+      --b: #e46b3c;
+      --c: #2b4d7d;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Work Sans", "Trebuchet MS", sans-serif;
+      color: var(--ink);
+      background: radial-gradient(circle at 10% 10%, #fff 0%, #f7f1e8 42%, #efe6d8 100%);
+      min-height: 100vh;
+    }
+    header { padding: 24px 28px 8px; }
+    h1 {
+      margin: 0;
+      font-size: 28px;
+      font-family: "DM Serif Display", Georgia, serif;
+      letter-spacing: 0.4px;
+    }
+    header p {
+      margin: 8px 0 0;
+      max-width: 840px;
+      color: var(--muted);
+      line-height: 1.45;
+      font-size: 14px;
+    }
+    main {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 330px;
+      gap: 18px;
+      padding: 10px 28px 28px;
+    }
+    .card {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: 0 14px 32px rgba(40, 30, 18, 0.12);
+    }
+    .viz {
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+    }
+    .shell {
+      position: relative;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid #e7ddcf;
+      background: linear-gradient(180deg, #fffdf8 0%, #f5efe4 100%);
+    }
+    .shell.scatter { aspect-ratio: 16 / 9; }
+    .shell.dendro { aspect-ratio: 16 / 6; }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    .overlay {
+      position: absolute;
+      top: 10px;
+      left: 12px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.88);
+      border: 1px solid var(--line);
+      font-size: 11px;
+      letter-spacing: 0.7px;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+    .panel {
+      padding: 16px;
+      display: grid;
+      align-content: start;
+      gap: 12px;
+    }
+    .panel h2 {
+      margin: 0;
+      font-size: 15px;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+    .control { display: grid; gap: 6px; font-size: 12px; }
+    .control label {
+      display: flex;
+      justify-content: space-between;
+      font-weight: 600;
+    }
+    .control output {
+      color: var(--c);
+      font-variant-numeric: tabular-nums;
+    }
+    select, input[type="range"] { width: 100%; }
+    select {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 8px;
+      background: #fff;
+      font: inherit;
+      font-size: 13px;
+    }
+    input[type="range"] { accent-color: var(--c); }
+    .buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    button {
+      border: none;
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: var(--a);
+      color: #fff;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 8px 18px rgba(31, 122, 111, 0.24);
+    }
+    button.secondary {
+      background: #1f1b16;
+      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+    }
+    .metric {
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid #e7ddcf;
+      background: #fff;
+      display: grid;
+      gap: 3px;
+      font-size: 13px;
+    }
+    .metric strong {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+    .note {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+    @media (max-width: 980px) {
+      main { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Hierarchical Clustering Studio</h1>
+    <p>Use <em>Step</em> to merge the closest pair of clusters. Compare linkage methods and adjust the cut height to see how the dendrogram translates into cluster groups.</p>
+  </header>
+
+  <main>
+    <section class="card viz">
+      <div class="shell scatter">
+        <div class="overlay">Feature Space</div>
+        <canvas id="scatterCanvas" aria-label="Hierarchical clustering scatter"></canvas>
+      </div>
+      <div class="shell dendro">
+        <div class="overlay">Dendrogram</div>
+        <canvas id="dendroCanvas" aria-label="Hierarchical clustering dendrogram"></canvas>
+      </div>
+    </section>
+
+    <aside class="card panel">
+      <h2>Controls</h2>
+
+      <div class="control">
+        <label for="linkage">Linkage</label>
+        <select id="linkage">
+          <option value="single">Single Link</option>
+          <option value="complete">Complete Link</option>
+          <option value="average" selected>Average Link</option>
+          <option value="ward">Ward</option>
+        </select>
+      </div>
+
+      <div class="control">
+        <label for="metric">Distance Metric</label>
+        <select id="metric">
+          <option value="euclidean" selected>Euclidean</option>
+          <option value="manhattan">Manhattan</option>
+        </select>
+      </div>
+
+      <div class="control">
+        <label for="cutSlider">Cut Height <output id="cutOut">0.10</output></label>
+        <input id="cutSlider" type="range" min="0" max="1" step="0.01" value="0.10" />
+      </div>
+
+      <div class="control">
+        <label for="zoomSlider">Y Zoom <output id="zoomOut">1.0x</output></label>
+        <input id="zoomSlider" type="range" min="1" max="6" step="0.1" value="1" />
+      </div>
+
+      <div class="buttons">
+        <button id="stepBtn" type="button">Step</button>
+        <button id="runBtn" type="button">Run</button>
+        <button id="resetBtn" type="button" class="secondary">Reset Merge</button>
+        <button id="newDataBtn" type="button" class="secondary">New Data</button>
+      </div>
+
+      <div class="metric">
+        <strong>Merges Completed</strong>
+        <span id="mergeCount">0</span>
+      </div>
+
+      <div class="metric">
+        <strong>Active Clusters</strong>
+        <span id="activeCount">0</span>
+      </div>
+
+      <div class="metric">
+        <strong>Clusters at Cut</strong>
+        <span id="cutCount">0</span>
+      </div>
+
+      <div class="metric">
+        <strong>Last Merge Distance</strong>
+        <span id="lastDist">--</span>
+      </div>
+
+      <p class="note">Tip: when linkage changes, the merge sequence resets on the same points so you can compare dendrogram structure directly.</p>
+    </aside>
+  </main>
+
+  <script>
+    const scatterCanvas = document.getElementById('scatterCanvas');
+    const dendroCanvas = document.getElementById('dendroCanvas');
+    const sctx = scatterCanvas.getContext('2d');
+    const dctx = dendroCanvas.getContext('2d');
+
+    const linkageEl = document.getElementById('linkage');
+    const metricEl = document.getElementById('metric');
+    const cutSlider = document.getElementById('cutSlider');
+    const cutOut = document.getElementById('cutOut');
+    const zoomSlider = document.getElementById('zoomSlider');
+    const zoomOut = document.getElementById('zoomOut');
+    const stepBtn = document.getElementById('stepBtn');
+    const runBtn = document.getElementById('runBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const newDataBtn = document.getElementById('newDataBtn');
+
+    const mergeCountEl = document.getElementById('mergeCount');
+    const activeCountEl = document.getElementById('activeCount');
+    const cutCountEl = document.getElementById('cutCount');
+    const lastDistEl = document.getElementById('lastDist');
+
+    const palette = ['#1f7a6f', '#e46b3c', '#2b4d7d', '#c9a227', '#7d4ea3', '#d1528b', '#2f9ed3', '#6c8d3f', '#b8642a', '#4d6d8f'];
+    const world = { minX: -1, maxX: 1, minY: -1, maxY: 1 };
+    const scatterPad = { l: 52, r: 16, t: 16, b: 38 };
+
+    const state = {
+      points: [],
+      leafOrder: [],
+      activeClusters: [],
+      history: [],
+      nextClusterId: 0,
+      linkage: 'average',
+      metric: 'euclidean',
+      cutHeight: 0.10,
+      yZoom: 1,
+      running: false,
+      runTimer: null,
+      lastMerge: null
+    };
+
+    function makeRng(seed) {
+      let s = seed >>> 0;
+      return () => {
+        s += 0x6D2B79F5;
+        let t = Math.imul(s ^ (s >>> 15), 1 | s);
+        t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+
+    function toScatterPx(p) {
+      const w = scatterCanvas.width - scatterPad.l - scatterPad.r;
+      const h = scatterCanvas.height - scatterPad.t - scatterPad.b;
+      return {
+        x: scatterPad.l + ((p.x - world.minX) / (world.maxX - world.minX)) * w,
+        y: scatterPad.t + (1 - (p.y - world.minY) / (world.maxY - world.minY)) * h
+      };
+    }
+
+    function pointDistance(a, b) {
+      const dx = a.x - b.x;
+      const dy = a.y - b.y;
+      if (state.metric === 'manhattan') return Math.abs(dx) + Math.abs(dy);
+      return Math.hypot(dx, dy);
+    }
+
+    function clusterCentroid(members) {
+      let sx = 0;
+      let sy = 0;
+      for (const idx of members) {
+        sx += state.points[idx].x;
+        sy += state.points[idx].y;
+      }
+      return { x: sx / members.length, y: sy / members.length };
+    }
+
+    function generatePoints(seed = 11) {
+      const rng = makeRng(seed);
+      const centers = [
+        { x: -0.54, y: 0.48 },
+        { x: 0.42, y: 0.26 },
+        { x: -0.08, y: -0.40 }
+      ];
+      const points = [];
+      centers.forEach(c => {
+        for (let i = 0; i < 10; i += 1) {
+          const ang = rng() * Math.PI * 2;
+          const rad = 0.11 + 0.14 * rng();
+          points.push({
+            x: c.x + Math.cos(ang) * rad + (rng() - 0.5) * 0.08,
+            y: c.y + Math.sin(ang) * rad + (rng() - 0.5) * 0.08
+          });
+        }
+      });
+      state.points = points.map((p, i) => ({
+        id: i,
+        x: Math.max(world.minX + 0.02, Math.min(world.maxX - 0.02, p.x)),
+        y: Math.max(world.minY + 0.02, Math.min(world.maxY - 0.02, p.y))
+      }));
+      state.leafOrder = [...state.points].sort((a, b) => (a.x - b.x) || (a.y - b.y)).map(p => p.id);
+      resetMerges();
+    }
+
+    function resetMerges() {
+      stopRun();
+      state.history = [];
+      state.lastMerge = null;
+      state.activeClusters = state.points.map(p => ({
+        id: p.id,
+        members: [p.id],
+        centroid: { x: p.x, y: p.y }
+      }));
+      state.nextClusterId = state.points.length;
+      updateCutRange(true);
+      syncReadout();
+      draw();
+    }
+
+    function clusterDistance(c1, c2) {
+      if (state.linkage === 'ward') {
+        const mergedMembers = [...c1.members, ...c2.members];
+        const c1Center = clusterCentroid(c1.members);
+        const c2Center = clusterCentroid(c2.members);
+        const mergedCenter = clusterCentroid(mergedMembers);
+
+        const sse = (members, center) => {
+          let sum = 0;
+          members.forEach(idx => {
+            const p = state.points[idx];
+            const dx = p.x - center.x;
+            const dy = p.y - center.y;
+            sum += dx * dx + dy * dy;
+          });
+          return sum;
+        };
+
+        const sseBefore = sse(c1.members, c1Center) + sse(c2.members, c2Center);
+        const sseAfter = sse(mergedMembers, mergedCenter);
+        return sseAfter - sseBefore;
+      }
+
+      let best = Infinity;
+      let worst = -Infinity;
+      let sum = 0;
+      let count = 0;
+      for (const i of c1.members) {
+        for (const j of c2.members) {
+          const d = pointDistance(state.points[i], state.points[j]);
+          if (d < best) best = d;
+          if (d > worst) worst = d;
+          sum += d;
+          count += 1;
+        }
+      }
+      if (state.linkage === 'single') return best;
+      if (state.linkage === 'complete') return worst;
+      return sum / Math.max(1, count);
+    }
+
+    function findClosestPair() {
+      let pick = null;
+      for (let i = 0; i < state.activeClusters.length; i += 1) {
+        for (let j = i + 1; j < state.activeClusters.length; j += 1) {
+          const a = state.activeClusters[i];
+          const b = state.activeClusters[j];
+          const d = clusterDistance(a, b);
+          if (!pick || d < pick.d) {
+            pick = { i, j, d, a, b };
+          }
+        }
+      }
+      return pick;
+    }
+
+    function updateCutRange(forceToLatest = false) {
+      const maxDist = Math.max(0.10, ...state.history.map(m => m.dist));
+      const sliderMax = Math.max(0.20, maxDist * 1.15);
+      cutSlider.max = sliderMax.toFixed(3);
+      if (forceToLatest) {
+        state.cutHeight = maxDist;
+      }
+      state.cutHeight = Math.max(0, Math.min(Number(cutSlider.max), state.cutHeight));
+      cutSlider.value = state.cutHeight.toFixed(3);
+      cutOut.textContent = state.cutHeight.toFixed(3);
+    }
+
+    function doMergeStep() {
+      if (state.activeClusters.length <= 1) {
+        stopRun();
+        return;
+      }
+      const pick = findClosestPair();
+      if (!pick) {
+        stopRun();
+        return;
+      }
+
+      const members = [...pick.a.members, ...pick.b.members];
+      const newCluster = {
+        id: state.nextClusterId,
+        members,
+        centroid: clusterCentroid(members)
+      };
+      state.nextClusterId += 1;
+
+      const merge = {
+        left: pick.a.id,
+        right: pick.b.id,
+        newId: newCluster.id,
+        dist: pick.d,
+        leftMembers: pick.a.members.slice(),
+        rightMembers: pick.b.members.slice(),
+        members: members.slice(),
+        leftCentroid: { ...pick.a.centroid },
+        rightCentroid: { ...pick.b.centroid },
+        mergedCentroid: { ...newCluster.centroid }
+      };
+
+      state.history.push(merge);
+      state.lastMerge = merge;
+
+      const keep = [];
+      for (let i = 0; i < state.activeClusters.length; i += 1) {
+        if (i !== pick.i && i !== pick.j) keep.push(state.activeClusters[i]);
+      }
+      keep.push(newCluster);
+      state.activeClusters = keep;
+
+      updateCutRange(true);
+      syncReadout();
+      draw();
+
+      if (state.activeClusters.length <= 1) stopRun();
+    }
+
+    function getCutLabels() {
+      const n = state.points.length;
+      const parent = Array.from({ length: n }, (_, i) => i);
+      const find = (x) => {
+        let p = x;
+        while (parent[p] !== p) p = parent[p];
+        while (parent[x] !== x) {
+          const nx = parent[x];
+          parent[x] = p;
+          x = nx;
+        }
+        return p;
+      };
+      const union = (a, b) => {
+        const ra = find(a);
+        const rb = find(b);
+        if (ra !== rb) parent[rb] = ra;
+      };
+
+      state.history.forEach(m => {
+        if (m.dist <= state.cutHeight) {
+          const base = m.members[0];
+          for (let i = 1; i < m.members.length; i += 1) union(base, m.members[i]);
+        }
+      });
+
+      const groupMap = new Map();
+      const labels = Array(n).fill(-1);
+      let gid = 0;
+      for (let i = 0; i < n; i += 1) {
+        const r = find(i);
+        if (!groupMap.has(r)) {
+          groupMap.set(r, gid);
+          gid += 1;
+        }
+        labels[i] = groupMap.get(r);
+      }
+      return { labels, count: gid };
+    }
+
+    function drawScatter() {
+      sctx.fillStyle = '#fff';
+      sctx.fillRect(0, 0, scatterCanvas.width, scatterCanvas.height);
+
+      sctx.fillStyle = '#fbf6ed';
+      sctx.fillRect(scatterPad.l, scatterPad.t, scatterCanvas.width - scatterPad.l - scatterPad.r, scatterCanvas.height - scatterPad.t - scatterPad.b);
+
+      sctx.strokeStyle = '#eadfce';
+      sctx.lineWidth = 1;
+      for (let i = 0; i <= 10; i += 1) {
+        const t = i / 10;
+        const x = scatterPad.l + t * (scatterCanvas.width - scatterPad.l - scatterPad.r);
+        const y = scatterPad.t + t * (scatterCanvas.height - scatterPad.t - scatterPad.b);
+        sctx.beginPath();
+        sctx.moveTo(x, scatterPad.t);
+        sctx.lineTo(x, scatterCanvas.height - scatterPad.b);
+        sctx.stroke();
+        sctx.beginPath();
+        sctx.moveTo(scatterPad.l, y);
+        sctx.lineTo(scatterCanvas.width - scatterPad.r, y);
+        sctx.stroke();
+      }
+
+      const cut = getCutLabels();
+
+      if (state.lastMerge) {
+        const a = toScatterPx(state.lastMerge.leftCentroid);
+        const b = toScatterPx(state.lastMerge.rightCentroid);
+
+        if (state.lastMerge.leftMembers && state.lastMerge.rightMembers) {
+          const drawGhostBoundary = (memberIds, centroid, color) => {
+            const centerPx = toScatterPx(centroid);
+            let maxMemberDist = 0;
+            memberIds.forEach(id => {
+              const pPx = toScatterPx(state.points[id]);
+              const d = Math.hypot(pPx.x - centerPx.x, pPx.y - centerPx.y);
+              if (d > maxMemberDist) maxMemberDist = d;
+            });
+            const radius = Math.max(12, maxMemberDist + 10);
+            sctx.save();
+            sctx.setLineDash([6, 5]);
+            sctx.strokeStyle = `${color}88`;
+            sctx.lineWidth = 1.5;
+            sctx.beginPath();
+            sctx.arc(centerPx.x, centerPx.y, radius, 0, Math.PI * 2);
+            sctx.stroke();
+            sctx.restore();
+          };
+          drawGhostBoundary(state.lastMerge.leftMembers, state.lastMerge.leftCentroid, '#e46b3c');
+          drawGhostBoundary(state.lastMerge.rightMembers, state.lastMerge.rightCentroid, '#2b4d7d');
+        }
+
+        sctx.strokeStyle = '#1a1712aa';
+        sctx.lineWidth = 1.5;
+        sctx.setLineDash([6, 4]);
+        sctx.beginPath();
+        sctx.moveTo(a.x, a.y);
+        sctx.lineTo(b.x, b.y);
+        sctx.stroke();
+        sctx.setLineDash([]);
+      }
+
+      if (state.lastMerge && state.lastMerge.leftMembers && state.lastMerge.rightMembers) {
+        const drawMemberHalo = (memberIds, color) => {
+          memberIds.forEach(id => {
+            const p = toScatterPx(state.points[id]);
+            sctx.beginPath();
+            sctx.arc(p.x, p.y, 9.5, 0, Math.PI * 2);
+            sctx.strokeStyle = `${color}aa`;
+            sctx.lineWidth = 1.6;
+            sctx.stroke();
+          });
+        };
+        drawMemberHalo(state.lastMerge.leftMembers, '#e46b3c');
+        drawMemberHalo(state.lastMerge.rightMembers, '#2b4d7d');
+
+        const a = toScatterPx(state.lastMerge.leftCentroid);
+        const b = toScatterPx(state.lastMerge.rightCentroid);
+        sctx.strokeStyle = '#1f1b16';
+        sctx.lineWidth = 2.4;
+        sctx.beginPath();
+        sctx.moveTo(a.x, a.y);
+        sctx.lineTo(b.x, b.y);
+        sctx.stroke();
+      }
+
+      for (const p of state.points) {
+        const px = toScatterPx(p);
+        const g = cut.labels[p.id] % palette.length;
+        sctx.beginPath();
+        sctx.arc(px.x, px.y, 5.6, 0, Math.PI * 2);
+        sctx.fillStyle = state.history.length ? palette[g] : '#8f877b';
+        sctx.fill();
+        sctx.lineWidth = 1;
+        sctx.strokeStyle = '#fff';
+        sctx.stroke();
+      }
+
+      state.activeClusters.forEach((c, idx) => {
+        const centerPx = toScatterPx(c.centroid);
+        let maxMemberDist = 0;
+        c.members.forEach(memberId => {
+          const pPx = toScatterPx(state.points[memberId]);
+          const d = Math.hypot(pPx.x - centerPx.x, pPx.y - centerPx.y);
+          if (d > maxMemberDist) maxMemberDist = d;
+        });
+
+        const radius = Math.max(12, maxMemberDist + 10);
+        const isNewestCluster = state.lastMerge && c.id === state.lastMerge.newId;
+        sctx.save();
+        sctx.setLineDash(isNewestCluster ? [] : [8, 6]);
+        sctx.strokeStyle = `${palette[idx % palette.length]}${isNewestCluster ? 'ff' : 'cc'}`;
+        sctx.lineWidth = isNewestCluster ? 2.6 : 1.9;
+        sctx.beginPath();
+        sctx.arc(centerPx.x, centerPx.y, radius, 0, Math.PI * 2);
+        sctx.stroke();
+        sctx.restore();
+      });
+    }
+
+    function drawDendrogram() {
+      dctx.fillStyle = '#fff';
+      dctx.fillRect(0, 0, dendroCanvas.width, dendroCanvas.height);
+
+      const pad = { l: 36, r: 14, t: 18, b: 26 };
+      const innerW = dendroCanvas.width - pad.l - pad.r;
+      const innerH = dendroCanvas.height - pad.t - pad.b;
+
+      dctx.fillStyle = '#fbf6ed';
+      dctx.fillRect(pad.l, pad.t, innerW, innerH);
+
+      const maxY = Math.max(0.1, Number(cutSlider.max));
+      const visibleMaxY = Math.max(0.01, maxY / state.yZoom);
+      const yPx = (val) => {
+        const clipped = Math.min(Math.max(0, val), visibleMaxY);
+        return pad.t + innerH - (clipped / visibleMaxY) * innerH;
+      };
+
+      const leafCount = state.leafOrder.length;
+      const xForLeaf = new Map();
+      for (let i = 0; i < leafCount; i += 1) {
+        const x = pad.l + ((i + 0.5) / leafCount) * innerW;
+        xForLeaf.set(state.leafOrder[i], x);
+      }
+
+      const nodePos = new Map();
+      state.leafOrder.forEach(id => nodePos.set(id, { x: xForLeaf.get(id), y: 0 }));
+
+      dctx.strokeStyle = '#2f2a24';
+      dctx.lineWidth = 1.6;
+      state.history.forEach((m, idx) => {
+        const left = nodePos.get(m.left);
+        const right = nodePos.get(m.right);
+        if (!left || !right) return;
+        const yL = yPx(left.y);
+        const yR = yPx(right.y);
+        const yM = yPx(m.dist);
+
+        const isLast = idx === state.history.length - 1;
+        if (isLast) {
+          dctx.lineWidth = 2.2;
+          dctx.strokeStyle = '#e46b3c';
+          dctx.beginPath();
+          dctx.moveTo(left.x, yL);
+          dctx.lineTo(left.x, yM);
+          dctx.stroke();
+
+          dctx.strokeStyle = '#2b4d7d';
+          dctx.beginPath();
+          dctx.moveTo(right.x, yR);
+          dctx.lineTo(right.x, yM);
+          dctx.stroke();
+
+          dctx.strokeStyle = '#1f1b16';
+          dctx.beginPath();
+          dctx.moveTo(left.x, yM);
+          dctx.lineTo(right.x, yM);
+          dctx.stroke();
+        } else {
+          dctx.lineWidth = 1.6;
+          dctx.strokeStyle = '#2f2a24';
+          dctx.beginPath();
+          dctx.moveTo(left.x, yL);
+          dctx.lineTo(left.x, yM);
+          dctx.moveTo(right.x, yR);
+          dctx.lineTo(right.x, yM);
+          dctx.moveTo(left.x, yM);
+          dctx.lineTo(right.x, yM);
+          dctx.stroke();
+        }
+
+        nodePos.set(m.newId, {
+          x: (left.x + right.x) / 2,
+          y: m.dist
+        });
+      });
+
+      dctx.strokeStyle = '#2b4d7d';
+      dctx.lineWidth = 1.3;
+      dctx.setLineDash([7, 5]);
+      const yCut = yPx(state.cutHeight);
+      dctx.beginPath();
+      dctx.moveTo(pad.l, yCut);
+      dctx.lineTo(dendroCanvas.width - pad.r, yCut);
+      dctx.stroke();
+      dctx.setLineDash([]);
+
+      dctx.fillStyle = '#5f5649';
+      dctx.font = '12px Work Sans, sans-serif';
+      dctx.fillText('0', 10, yPx(0) + 4);
+      dctx.fillText(visibleMaxY.toFixed(2), 4, yPx(visibleMaxY) + 4);
+    }
+
+    function syncReadout() {
+      const cut = getCutLabels();
+      mergeCountEl.textContent = String(state.history.length);
+      activeCountEl.textContent = String(state.activeClusters.length);
+      cutCountEl.textContent = String(cut.count);
+      lastDistEl.textContent = state.lastMerge ? state.lastMerge.dist.toFixed(3) : '--';
+      cutOut.textContent = state.cutHeight.toFixed(3);
+      zoomOut.textContent = `${state.yZoom.toFixed(1)}x`;
+    }
+
+    function draw() {
+      drawScatter();
+      drawDendrogram();
+    }
+
+    function resizeCanvases() {
+      const resizeOne = (canvas) => {
+        const rect = canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        const w = Math.max(1, Math.round(rect.width * dpr));
+        const h = Math.max(1, Math.round(rect.height * dpr));
+        if (canvas.width !== w || canvas.height !== h) {
+          canvas.width = w;
+          canvas.height = h;
+        }
+      };
+      resizeOne(scatterCanvas);
+      resizeOne(dendroCanvas);
+      draw();
+    }
+
+    function startRun() {
+      if (state.running) return;
+      state.running = true;
+      runBtn.textContent = 'Pause';
+      state.runTimer = setInterval(doMergeStep, 700);
+    }
+
+    function stopRun() {
+      state.running = false;
+      runBtn.textContent = 'Run';
+      if (state.runTimer) {
+        clearInterval(state.runTimer);
+        state.runTimer = null;
+      }
+    }
+
+    linkageEl.addEventListener('change', () => {
+      state.linkage = linkageEl.value;
+      resetMerges();
+    });
+
+    metricEl.addEventListener('change', () => {
+      state.metric = metricEl.value;
+      resetMerges();
+    });
+
+    cutSlider.addEventListener('input', () => {
+      state.cutHeight = Number(cutSlider.value);
+      syncReadout();
+      draw();
+    });
+
+    zoomSlider.addEventListener('input', () => {
+      state.yZoom = Number(zoomSlider.value);
+      syncReadout();
+      draw();
+    });
+
+    stepBtn.addEventListener('click', doMergeStep);
+    runBtn.addEventListener('click', () => {
+      if (state.running) stopRun();
+      else startRun();
+    });
+    resetBtn.addEventListener('click', resetMerges);
+    newDataBtn.addEventListener('click', () => {
+      generatePoints(Math.floor(Math.random() * 1e9));
+      draw();
+    });
+
+    window.addEventListener('resize', resizeCanvases);
+
+    generatePoints(11);
+    resizeCanvases();
+  </script>
+</body>
+</html>
