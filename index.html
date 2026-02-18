@@ -592,6 +592,50 @@
           <div><strong>Equation</strong><br /><span class="equation">p(x) = 1 / (1 + e<sup>-(b0 + b1x)</sup>)</span></div>
         </div>
       </div>
+      <div class="card card-split">
+        <div class="card-left">
+          <div class="card-text">
+            <span class="pill">k-Nearest Neighbors</span>
+            <h4>Neighborhood Explorer</h4>
+            <p>Move a query point through feature space and see the nearest-neighbor vote update in real time.</p>
+            <a href="knn_simulation.html">Launch simulation →</a>
+          </div>
+          <div class="card-media">
+            <svg viewBox="8 8 104 74" aria-hidden="true">
+              <rect x="8" y="8" width="104" height="74" rx="8" fill="none" stroke="none"/>
+              <g transform="translate(-6 -4) scale(1.15)">
+                <g fill="#0e7c86" stroke="#1f1c18" stroke-width="0.6">
+                  <circle cx="26" cy="28" r="3"/>
+                  <circle cx="34" cy="34" r="3"/>
+                  <circle cx="30" cy="42" r="3"/>
+                </g>
+                <g fill="#d04e16" stroke="#1f1c18" stroke-width="0.6">
+                  <circle cx="74" cy="32" r="3"/>
+                  <circle cx="82" cy="38" r="3"/>
+                  <circle cx="78" cy="46" r="3"/>
+                </g>
+                <circle cx="56" cy="52" r="4" fill="#f2c14e" stroke="#1f1c18" stroke-width="0.8"/>
+                <line x1="56" y1="52" x2="34" y2="34" stroke="#1f1c18" stroke-width="1.2"/>
+                <line x1="56" y1="52" x2="30" y2="42" stroke="#1f1c18" stroke-width="1.2"/>
+                <line x1="56" y1="52" x2="74" y2="32" stroke="#1f1c18" stroke-width="1.2"/>
+              </g>
+            </svg>
+          </div>
+        </div>
+        <div class="card-detail">
+          <div><strong>What you'll see</strong><br />Neighbor sets and class votes shift as query position and k change.</div>
+          <div><strong>Try this</strong><br />Use a larger k near overlapping clusters and compare the prediction.</div>
+          <div><strong>Tags</strong>
+            <div class="tag-row">
+              <span class="tag">Distance</span>
+              <span class="tag">Neighbors</span>
+              <span class="tag">Voting</span>
+            </div>
+          </div>
+          <div><strong>Metrics</strong><br />Vote count • Neighborhood radius</div>
+          <div><strong>Equation</strong><br /><span class="equation">ŷ = mode(N<sub>k</sub>(x))</span></div>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -819,9 +863,10 @@
       <div class="card card-split">
         <div class="card-left">
           <div class="card-text">
-            <span class="pill">Coming soon</span>
+            <span class="pill">Clustering</span>
             <h4>K‑Means Playground</h4>
             <p>Seed centroids, iterate, and watch clusters converge while inertia updates.</p>
+            <a href="kmeans_simulation.html">Launch simulation →</a>
           </div>
           <div class="card-media">
             <svg viewBox="8 8 104 74" aria-hidden="true">

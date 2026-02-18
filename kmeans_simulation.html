@@ -1,0 +1,854 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>K-Means Iteration Lab</title>
+  <style>
+    :root {
+      --ink: #1a1712;
+      --muted: #6f665b;
+      --bg: #f6f0e6;
+      --paper: #fffaf1;
+      --line: #e2d6c6;
+      --a: #1f7a6f;
+      --b: #e46b3c;
+      --c: #2b4d7d;
+      --d: #c9a227;
+      --e: #7d4ea3;
+      --f: #d1528b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Work Sans", "Trebuchet MS", sans-serif;
+      color: var(--ink);
+      background: radial-gradient(circle at 10% 10%, #fff 0%, #f7f1e8 40%, #efe6d8 100%);
+      min-height: 100vh;
+    }
+    header { padding: 24px 28px 8px; }
+    h1 {
+      margin: 0;
+      font-size: 28px;
+      font-family: "DM Serif Display", Georgia, serif;
+      letter-spacing: 0.4px;
+    }
+    header p {
+      margin: 8px 0 0;
+      max-width: 760px;
+      color: var(--muted);
+      line-height: 1.45;
+      font-size: 14px;
+    }
+    main {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 340px;
+      gap: 18px;
+      padding: 10px 28px 28px;
+    }
+    .card {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: 0 14px 32px rgba(40, 30, 18, 0.12);
+    }
+    .viz { padding: 16px; display: grid; gap: 12px; }
+    .canvas-shell {
+      position: relative;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid #e7ddcf;
+      background: linear-gradient(180deg, #fffdf8 0%, #f5efe4 100%);
+      aspect-ratio: 16 / 10;
+    }
+    canvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
+    .overlay-label {
+      position: absolute;
+      top: 12px;
+      left: 14px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.88);
+      border: 1px solid var(--line);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      font-weight: 700;
+    }
+    .panel {
+      padding: 16px;
+      display: grid;
+      align-content: start;
+      gap: 12px;
+    }
+    .panel h2 {
+      margin: 0;
+      font-size: 15px;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+    }
+    .control { display: grid; gap: 6px; font-size: 12px; }
+    .control label {
+      display: flex;
+      justify-content: space-between;
+      font-weight: 600;
+    }
+    .control output { color: var(--c); font-variant-numeric: tabular-nums; }
+    input[type="range"] { width: 100%; accent-color: var(--c); }
+    .buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    button {
+      border: none;
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: var(--a);
+      color: #fff;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 8px 18px rgba(31, 122, 111, 0.24);
+    }
+    button.secondary { background: #1f1b16; box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18); }
+    .metric {
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid #e7ddcf;
+      background: #fff;
+      font-size: 13px;
+      display: grid;
+      gap: 3px;
+    }
+    .metric strong {
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+    }
+    .note {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+    .legend {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .sw {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+    @media (max-width: 980px) {
+      main { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>K-Means Iteration Lab</h1>
+    <p>Initialize centroids, step through assignment and update cycles, and watch inertia decrease as clusters stabilize.</p>
+  </header>
+
+  <main>
+    <section class="card viz">
+      <div class="canvas-shell">
+        <div class="overlay-label">Clustering Space</div>
+        <canvas id="plot" aria-label="k-means plot"></canvas>
+      </div>
+      <div class="note">Click an empty spot to add a data point. Drag a centroid (X marker) to test how assignments change.</div>
+    </section>
+
+    <aside class="card panel">
+      <h2>Controls</h2>
+
+      <div class="control">
+        <label for="kSlider">Clusters (k) <output id="kOut">3</output></label>
+        <input id="kSlider" type="range" min="2" max="6" step="1" value="3" />
+      </div>
+
+      <div class="buttons">
+        <button id="initBtn" type="button">Initialize</button>
+        <button id="stepBtn" type="button">Step</button>
+        <button id="runBtn" type="button">Run</button>
+        <button id="resetBtn" type="button" class="secondary">Reset Points</button>
+      </div>
+
+      <div class="metric">
+        <strong>Iteration</strong>
+        <span id="iter">0</span>
+      </div>
+
+      <div class="metric">
+        <strong>Inertia (SSE)</strong>
+        <span id="inertia">--</span>
+      </div>
+
+      <div class="metric">
+        <strong>Status</strong>
+        <span id="status">Press Initialize to place centroids.</span>
+      </div>
+
+      <div class="legend" id="legend"></div>
+    </aside>
+  </main>
+
+  <script>
+    const canvas = document.getElementById('plot');
+    const ctx = canvas.getContext('2d');
+
+    const kSlider = document.getElementById('kSlider');
+    const kOut = document.getElementById('kOut');
+    const initBtn = document.getElementById('initBtn');
+    const stepBtn = document.getElementById('stepBtn');
+    const runBtn = document.getElementById('runBtn');
+    const resetBtn = document.getElementById('resetBtn');
+
+    const iterEl = document.getElementById('iter');
+    const inertiaEl = document.getElementById('inertia');
+    const statusEl = document.getElementById('status');
+    const legendEl = document.getElementById('legend');
+
+    const palette = ['#1f7a6f', '#e46b3c', '#2b4d7d', '#c9a227', '#7d4ea3', '#d1528b'];
+
+    const world = { minX: -1, maxX: 1, minY: -1, maxY: 1 };
+    const pad = { l: 60, r: 20, t: 24, b: 44 };
+
+    const state = {
+      points: [],
+      assignments: [],
+      centroids: [],
+      k: 3,
+      iter: 0,
+      inertia: null,
+      running: false,
+      runTimer: null,
+      draggingCentroid: null,
+      animating: false,
+      animationId: null,
+      animStart: 0,
+      animDurationMs: 700,
+      animFrom: [],
+      animTo: [],
+      stepPhase: 'assign',
+      previewAssignments: [],
+      previewTargets: [],
+      showAssignmentLines: false,
+      shiftHighlights: [],
+      shiftOldCentroids: [],
+      shiftNewCentroids: [],
+      highlightUntil: 0,
+      highlightAnimId: null
+    };
+
+    function makeRng(seed) {
+      let s = seed >>> 0;
+      return () => {
+        s += 0x6D2B79F5;
+        let t = Math.imul(s ^ (s >>> 15), 1 | s);
+        t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+
+    function toPixel(pt) {
+      const w = canvas.width - pad.l - pad.r;
+      const h = canvas.height - pad.t - pad.b;
+      return {
+        x: pad.l + ((pt.x - world.minX) / (world.maxX - world.minX)) * w,
+        y: pad.t + (1 - (pt.y - world.minY) / (world.maxY - world.minY)) * h
+      };
+    }
+
+    function toWorld(px, py) {
+      const w = canvas.width - pad.l - pad.r;
+      const h = canvas.height - pad.t - pad.b;
+      const x = world.minX + ((px - pad.l) / w) * (world.maxX - world.minX);
+      const y = world.minY + (1 - (py - pad.t) / h) * (world.maxY - world.minY);
+      return {
+        x: Math.max(world.minX, Math.min(world.maxX, x)),
+        y: Math.max(world.minY, Math.min(world.maxY, y))
+      };
+    }
+
+    function dist2(a, b) {
+      const dx = a.x - b.x;
+      const dy = a.y - b.y;
+      return dx * dx + dy * dy;
+    }
+
+    function generatePoints(seed = 7) {
+      const rng = makeRng(seed);
+      const centers = [
+        { x: -0.55, y: 0.48 },
+        { x: 0.52, y: 0.36 },
+        { x: -0.08, y: -0.46 },
+        { x: 0.52, y: -0.34 }
+      ];
+      const out = [];
+      centers.forEach(c => {
+        for (let i = 0; i < 20; i += 1) {
+          const ang = rng() * Math.PI * 2;
+          const rad = 0.11 + rng() * 0.19;
+          out.push({
+            x: c.x + Math.cos(ang) * rad + (rng() - 0.5) * 0.07,
+            y: c.y + Math.sin(ang) * rad + (rng() - 0.5) * 0.07
+          });
+        }
+      });
+      state.points = out.map(p => ({
+        x: Math.max(world.minX + 0.01, Math.min(world.maxX - 0.01, p.x)),
+        y: Math.max(world.minY + 0.01, Math.min(world.maxY - 0.01, p.y))
+      }));
+      resetModel();
+    }
+
+    function resetModel() {
+      state.assignments = Array(state.points.length).fill(-1);
+      state.centroids = [];
+      state.iter = 0;
+      state.inertia = null;
+      state.animating = false;
+      state.animFrom = [];
+      state.animTo = [];
+      state.stepPhase = 'assign';
+      state.previewAssignments = [];
+      state.previewTargets = [];
+      state.showAssignmentLines = false;
+      if (state.animationId) {
+        cancelAnimationFrame(state.animationId);
+        state.animationId = null;
+      }
+      if (state.highlightAnimId) {
+        cancelAnimationFrame(state.highlightAnimId);
+        state.highlightAnimId = null;
+      }
+      state.shiftHighlights = [];
+      state.shiftOldCentroids = [];
+      state.shiftNewCentroids = [];
+      state.highlightUntil = 0;
+      stopRun();
+      statusEl.textContent = 'Press Initialize to place centroids.';
+      syncReadout();
+    }
+
+    function initializeCentroids() {
+      if (state.points.length < state.k) {
+        statusEl.textContent = 'Need at least k points before initialization.';
+        return;
+      }
+      const pool = [...Array(state.points.length).keys()];
+      for (let i = pool.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [pool[i], pool[j]] = [pool[j], pool[i]];
+      }
+      state.centroids = pool.slice(0, state.k).map(idx => ({ ...state.points[idx] }));
+      state.iter = 0;
+      state.assignments = Array(state.points.length).fill(-1);
+      state.inertia = null;
+      state.stepPhase = 'assign';
+      state.previewAssignments = [];
+      state.previewTargets = [];
+      state.showAssignmentLines = false;
+      statusEl.textContent = 'Initialized. Press Step to assign points to nearest centroids.';
+      syncReadout();
+      draw();
+    }
+
+    function computeAssignments(centroids) {
+      if (!centroids.length) return Array(state.points.length).fill(-1);
+      return state.points.map(p => {
+        let best = 0;
+        let bestD = Infinity;
+        centroids.forEach((c, i) => {
+          const d = dist2(p, c);
+          if (d < bestD) {
+            bestD = d;
+            best = i;
+          }
+        });
+        return best;
+      });
+    }
+
+    function assignPoints() {
+      state.assignments = computeAssignments(state.centroids);
+    }
+
+    function computeCentroidTargets(assignments, centroids) {
+      if (!centroids.length) return { moved: false, targets: [] };
+      const sums = Array(state.k).fill(0).map(() => ({ x: 0, y: 0, n: 0 }));
+      state.points.forEach((p, i) => {
+        const g = assignments[i];
+        if (g >= 0) {
+          sums[g].x += p.x;
+          sums[g].y += p.y;
+          sums[g].n += 1;
+        }
+      });
+
+      let moved = false;
+      const targets = centroids.map(c => ({ ...c }));
+      for (let i = 0; i < state.k; i += 1) {
+        if (sums[i].n === 0) continue;
+        const nx = sums[i].x / sums[i].n;
+        const ny = sums[i].y / sums[i].n;
+        if (Math.hypot(nx - centroids[i].x, ny - centroids[i].y) > 1e-4) moved = true;
+        targets[i] = { x: nx, y: ny };
+      }
+      return { moved, targets };
+    }
+
+    function computeInertia(centroids = state.centroids, assignments = state.assignments) {
+      if (!centroids.length) {
+        state.inertia = null;
+        return;
+      }
+      let sum = 0;
+      state.points.forEach((p, i) => {
+        const g = assignments[i];
+        if (g >= 0) sum += dist2(p, centroids[g]);
+      });
+      state.inertia = sum;
+    }
+
+    function getDisplayedCentroids() {
+      if (!state.animating || !state.animFrom.length || !state.animTo.length) return state.centroids;
+      const tRaw = (performance.now() - state.animStart) / state.animDurationMs;
+      const t = Math.max(0, Math.min(1, tRaw));
+      const eased = 1 - Math.pow(1 - t, 3);
+      return state.animFrom.map((from, i) => ({
+        x: from.x + (state.animTo[i].x - from.x) * eased,
+        y: from.y + (state.animTo[i].y - from.y) * eased
+      }));
+    }
+
+    function animateCentroidMove(fromCentroids, toCentroids, onDone) {
+      state.animating = true;
+      state.animFrom = fromCentroids.map(c => ({ ...c }));
+      state.animTo = toCentroids.map(c => ({ ...c }));
+      state.animStart = performance.now();
+      statusEl.textContent = 'Moving centroids to the mean of assigned points...';
+
+      const tick = () => {
+        draw();
+        const elapsed = performance.now() - state.animStart;
+        if (elapsed < state.animDurationMs) {
+          state.animationId = requestAnimationFrame(tick);
+          return;
+        }
+        state.animating = false;
+        state.animationId = null;
+        state.centroids = toCentroids.map(c => ({ ...c }));
+        if (typeof onDone === 'function') onDone();
+        draw();
+      };
+      state.animationId = requestAnimationFrame(tick);
+    }
+
+    function showShiftHighlights(changed, oldCentroids, newCentroids) {
+      if (state.highlightAnimId) {
+        cancelAnimationFrame(state.highlightAnimId);
+        state.highlightAnimId = null;
+      }
+      state.shiftHighlights = changed.slice();
+      state.shiftOldCentroids = oldCentroids.map(c => ({ ...c }));
+      state.shiftNewCentroids = newCentroids.map(c => ({ ...c }));
+      if (!changed.length) {
+        state.highlightUntil = 0;
+        return;
+      }
+      state.highlightUntil = performance.now() + 1200;
+      const tick = () => {
+        draw();
+        if (performance.now() < state.highlightUntil) {
+          state.highlightAnimId = requestAnimationFrame(tick);
+          return;
+        }
+        state.shiftHighlights = [];
+        state.shiftOldCentroids = [];
+        state.shiftNewCentroids = [];
+        state.highlightAnimId = null;
+        state.highlightUntil = 0;
+        draw();
+      };
+      state.highlightAnimId = requestAnimationFrame(tick);
+    }
+
+    function stepOnce() {
+      if (!state.centroids.length) {
+        statusEl.textContent = 'Initialize first.';
+        return;
+      }
+      if (state.animating) return;
+
+      if (state.stepPhase === 'assign') {
+        const fromCentroids = state.centroids.map(c => ({ ...c }));
+        const assignments = computeAssignments(fromCentroids);
+        const { targets } = computeCentroidTargets(assignments, fromCentroids);
+        state.previewAssignments = assignments.slice();
+        state.previewTargets = targets.map(c => ({ ...c }));
+        state.showAssignmentLines = true;
+        state.stepPhase = 'update';
+        statusEl.textContent = 'Assignment preview shown. Press Step again to move centroids.';
+        draw();
+        return;
+      }
+
+      const fromCentroids = state.centroids.map(c => ({ ...c }));
+      const oldAssignments = state.assignments.slice();
+      const nextAssignments = state.previewAssignments.length
+        ? state.previewAssignments.slice()
+        : computeAssignments(fromCentroids);
+      const nextTargets = state.previewTargets.length
+        ? state.previewTargets.map(c => ({ ...c }))
+        : computeCentroidTargets(nextAssignments, fromCentroids).targets;
+      const moved = nextTargets.some((c, i) => Math.hypot(c.x - fromCentroids[i].x, c.y - fromCentroids[i].y) > 1e-4);
+
+      const finalizeCommit = () => {
+        state.centroids = nextTargets.map(c => ({ ...c }));
+        state.assignments = computeAssignments(state.centroids);
+        computeInertia(state.centroids, state.assignments);
+        state.iter += 1;
+        state.showAssignmentLines = false;
+        state.previewAssignments = [];
+        state.previewTargets = [];
+        state.stepPhase = 'assign';
+        syncReadout();
+
+        const changed = [];
+        state.assignments.forEach((g, i) => {
+          const from = oldAssignments[i];
+          if (from >= 0 && g >= 0 && from !== g) changed.push({ idx: i, from, to: g });
+        });
+        showShiftHighlights(changed, fromCentroids, state.centroids);
+
+        if (!moved) {
+          statusEl.textContent = 'Centroids already at means. Press Step to preview assignments again.';
+          stopRun();
+          draw();
+          return;
+        }
+        statusEl.textContent = changed.length
+          ? `Step complete: ${changed.length} point${changed.length === 1 ? '' : 's'} changed cluster.`
+          : 'Step complete: centroids moved and clusters committed.';
+      };
+
+      if (!moved) {
+        finalizeCommit();
+        return;
+      }
+      animateCentroidMove(fromCentroids, nextTargets, finalizeCommit);
+    }
+
+    function startRun() {
+      if (!state.centroids.length) {
+        statusEl.textContent = 'Initialize first.';
+        return;
+      }
+      if (state.running) return;
+      state.running = true;
+      runBtn.textContent = 'Pause';
+      state.runTimer = setInterval(stepOnce, 900);
+    }
+
+    function stopRun() {
+      state.running = false;
+      runBtn.textContent = 'Run';
+      if (state.runTimer) {
+        clearInterval(state.runTimer);
+        state.runTimer = null;
+      }
+    }
+
+    function syncReadout() {
+      iterEl.textContent = String(state.iter);
+      inertiaEl.textContent = state.inertia === null ? '--' : state.inertia.toFixed(3);
+      renderLegend();
+    }
+
+    function renderLegend() {
+      const items = [];
+      for (let i = 0; i < state.k; i += 1) {
+        items.push(`<span><i class="sw" style="background:${palette[i]}"></i>C${i + 1}</span>`);
+      }
+      legendEl.innerHTML = items.join('');
+    }
+
+    function drawAxes() {
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#fbf6ed';
+      ctx.fillRect(pad.l, pad.t, canvas.width - pad.l - pad.r, canvas.height - pad.t - pad.b);
+
+      ctx.strokeStyle = '#eadfce';
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= 10; i += 1) {
+        const t = i / 10;
+        const x = pad.l + t * (canvas.width - pad.l - pad.r);
+        const y = pad.t + t * (canvas.height - pad.t - pad.b);
+        ctx.beginPath();
+        ctx.moveTo(x, pad.t);
+        ctx.lineTo(x, canvas.height - pad.b);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(pad.l, y);
+        ctx.lineTo(canvas.width - pad.r, y);
+        ctx.stroke();
+      }
+
+      const x0 = toPixel({ x: world.minX, y: 0 }).y;
+      const y0 = toPixel({ x: 0, y: world.minY }).x;
+      ctx.strokeStyle = '#b8a88f';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(pad.l, x0);
+      ctx.lineTo(canvas.width - pad.r, x0);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(y0, pad.t);
+      ctx.lineTo(y0, canvas.height - pad.b);
+      ctx.stroke();
+    }
+
+    function drawVoronoiHint(centroids) {
+      const hasAssignments = state.assignments.some(a => a >= 0);
+      if (!centroids.length || !hasAssignments) return;
+      const cols = 58;
+      const rows = 36;
+      const w = (canvas.width - pad.l - pad.r) / cols;
+      const h = (canvas.height - pad.t - pad.b) / rows;
+      for (let i = 0; i < cols; i += 1) {
+        for (let j = 0; j < rows; j += 1) {
+          const wx = world.minX + ((i + 0.5) / cols) * (world.maxX - world.minX);
+          const wy = world.maxY - ((j + 0.5) / rows) * (world.maxY - world.minY);
+          let best = 0;
+          let bestD = Infinity;
+          centroids.forEach((c, idx) => {
+            const d = dist2({ x: wx, y: wy }, c);
+            if (d < bestD) {
+              bestD = d;
+              best = idx;
+            }
+          });
+          ctx.fillStyle = `${palette[best]}16`;
+          ctx.fillRect(pad.l + i * w, pad.t + j * h, w + 0.7, h + 0.7);
+        }
+      }
+    }
+
+    function drawPointsAndCentroids(centroids) {
+      const hasPreview = state.showAssignmentLines && state.previewAssignments.some(a => a >= 0);
+      const lineAssignments = hasPreview ? state.previewAssignments : state.assignments;
+      if ((state.animating || hasPreview) && lineAssignments.some(a => a >= 0)) {
+        ctx.lineWidth = 1.4;
+        state.points.forEach((p, i) => {
+          const g = lineAssignments[i];
+          if (g < 0 || !centroids[g]) return;
+          const pp = toPixel(p);
+          const cp = toPixel(centroids[g]);
+          ctx.strokeStyle = `${palette[g]}88`;
+          ctx.beginPath();
+          ctx.moveTo(pp.x, pp.y);
+          ctx.lineTo(cp.x, cp.y);
+          ctx.stroke();
+        });
+      }
+
+      state.points.forEach((p, i) => {
+        const px = toPixel(p);
+        const g = state.assignments[i];
+        const hasCommitted = g >= 0;
+        ctx.beginPath();
+        ctx.arc(px.x, px.y, 5.6, 0, Math.PI * 2);
+        ctx.fillStyle = hasCommitted ? palette[g] : '#9b9387';
+        ctx.fill();
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = '#fff';
+        ctx.stroke();
+      });
+
+      drawShiftHighlights();
+
+      centroids.forEach((c, i) => {
+        const px = toPixel(c);
+        ctx.strokeStyle = '#1a1712';
+        ctx.lineWidth = 2.4;
+        ctx.beginPath();
+        ctx.moveTo(px.x - 9, px.y - 9);
+        ctx.lineTo(px.x + 9, px.y + 9);
+        ctx.moveTo(px.x - 9, px.y + 9);
+        ctx.lineTo(px.x + 9, px.y - 9);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(px.x, px.y, 11.5, 0, Math.PI * 2);
+        ctx.strokeStyle = palette[i];
+        ctx.lineWidth = 2.2;
+        ctx.stroke();
+      });
+    }
+
+    function colorWithAlpha(hex, alpha) {
+      const m = /^#?([a-f\\d]{2})([a-f\\d]{2})([a-f\\d]{2})$/i.exec(hex);
+      if (!m) return `rgba(0,0,0,${alpha})`;
+      const r = parseInt(m[1], 16);
+      const g = parseInt(m[2], 16);
+      const b = parseInt(m[3], 16);
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+
+    function drawShiftHighlights() {
+      if (!state.shiftHighlights.length || !state.shiftOldCentroids.length || !state.shiftNewCentroids.length) return;
+      const now = performance.now();
+      const remaining = Math.max(0, state.highlightUntil - now);
+      const t = Math.min(1, remaining / 1200);
+
+      state.shiftHighlights.forEach(h => {
+        const p = state.points[h.idx];
+        if (!p) return;
+        const pp = toPixel(p);
+        const oldC = state.shiftOldCentroids[h.from];
+        const newC = state.shiftNewCentroids[h.to];
+        if (!oldC || !newC) return;
+
+        const oldPx = toPixel(oldC);
+        const newPx = toPixel(newC);
+
+        ctx.save();
+        ctx.setLineDash([5, 5]);
+        ctx.lineWidth = 1.4;
+        ctx.strokeStyle = colorWithAlpha(palette[h.from], 0.28 * t);
+        ctx.beginPath();
+        ctx.moveTo(pp.x, pp.y);
+        ctx.lineTo(oldPx.x, oldPx.y);
+        ctx.stroke();
+        ctx.restore();
+
+        ctx.lineWidth = 2.2;
+        ctx.strokeStyle = colorWithAlpha(palette[h.to], 0.85 * t);
+        ctx.beginPath();
+        ctx.moveTo(pp.x, pp.y);
+        ctx.lineTo(newPx.x, newPx.y);
+        ctx.stroke();
+
+        const pulse = 10 + (1 - t) * 9;
+        ctx.lineWidth = 2.2;
+        ctx.strokeStyle = colorWithAlpha('#f2c14e', 0.9 * t);
+        ctx.beginPath();
+        ctx.arc(pp.x, pp.y, pulse, 0, Math.PI * 2);
+        ctx.stroke();
+      });
+    }
+
+    function draw() {
+      const centroids = getDisplayedCentroids();
+      drawAxes();
+      drawVoronoiHint(centroids);
+      drawPointsAndCentroids(centroids);
+    }
+
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      const w = Math.max(1, Math.round(rect.width * dpr));
+      const h = Math.max(1, Math.round(rect.height * dpr));
+      if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w;
+        canvas.height = h;
+      }
+      draw();
+    }
+
+    function pointerPos(ev) {
+      const rect = canvas.getBoundingClientRect();
+      const sx = canvas.width / rect.width;
+      const sy = canvas.height / rect.height;
+      return {
+        x: (ev.clientX - rect.left) * sx,
+        y: (ev.clientY - rect.top) * sy
+      };
+    }
+
+    function pickCentroid(mx, my) {
+      let best = null;
+      let bestD = Infinity;
+      state.centroids.forEach((c, i) => {
+        const p = toPixel(c);
+        const d = Math.hypot(mx - p.x, my - p.y);
+        if (d < bestD) {
+          bestD = d;
+          best = i;
+        }
+      });
+      return bestD <= 14 ? best : null;
+    }
+
+    canvas.addEventListener('pointerdown', (ev) => {
+      if (state.animating) return;
+      const pos = pointerPos(ev);
+      const hit = pickCentroid(pos.x, pos.y);
+      if (hit !== null) {
+        state.draggingCentroid = hit;
+        canvas.setPointerCapture(ev.pointerId);
+        return;
+      }
+      const w = toWorld(pos.x, pos.y);
+      state.points.push(w);
+      state.assignments.push(-1);
+      if (state.centroids.length && state.assignments.some(a => a >= 0)) {
+        assignPoints();
+        computeInertia();
+        syncReadout();
+      }
+      draw();
+    });
+
+    canvas.addEventListener('pointermove', (ev) => {
+      if (state.animating) return;
+      if (state.draggingCentroid === null) return;
+      const pos = pointerPos(ev);
+      state.centroids[state.draggingCentroid] = toWorld(pos.x, pos.y);
+      if (state.assignments.some(a => a >= 0)) {
+        assignPoints();
+        computeInertia();
+        statusEl.textContent = 'Centroid moved manually.';
+        syncReadout();
+      }
+      draw();
+    });
+
+    function stopDrag() { state.draggingCentroid = null; }
+    canvas.addEventListener('pointerup', stopDrag);
+    canvas.addEventListener('pointerleave', stopDrag);
+
+    kSlider.addEventListener('input', () => {
+      state.k = Number(kSlider.value);
+      kOut.textContent = String(state.k);
+      resetModel();
+      draw();
+    });
+
+    initBtn.addEventListener('click', initializeCentroids);
+    stepBtn.addEventListener('click', stepOnce);
+    runBtn.addEventListener('click', () => {
+      if (state.running) stopRun();
+      else startRun();
+    });
+    resetBtn.addEventListener('click', () => {
+      generatePoints(Math.floor(Math.random() * 1e9));
+      draw();
+    });
+
+    generatePoints(7);
+    syncReadout();
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+  </script>
+</body>
+</html>

@@ -1,0 +1,650 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>k-NN Neighborhood Explorer</title>
+  <style>
+    :root {
+      --ink: #1a1712;
+      --muted: #6f665b;
+      --bg: #f6f0e6;
+      --paper: #fffaf1;
+      --line: #e2d6c6;
+      --c1: #1f7a6f;
+      --c2: #e46b3c;
+      --c3: #2b4d7d;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Work Sans", "Trebuchet MS", sans-serif;
+      color: var(--ink);
+      background: radial-gradient(circle at 10% 10%, #fff 0%, #f7f1e8 40%, #efe6d8 100%);
+      min-height: 100vh;
+    }
+    header { padding: 24px 28px 8px; }
+    h1 {
+      margin: 0;
+      font-size: 28px;
+      font-family: "DM Serif Display", Georgia, serif;
+      letter-spacing: 0.4px;
+    }
+    header p {
+      margin: 8px 0 0;
+      max-width: 760px;
+      color: var(--muted);
+      line-height: 1.45;
+      font-size: 14px;
+    }
+    main {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 320px;
+      gap: 18px;
+      padding: 10px 28px 28px;
+    }
+    .card {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: 0 14px 32px rgba(40, 30, 18, 0.12);
+    }
+    .viz { padding: 16px; }
+    .canvas-shell {
+      position: relative;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid #e7ddcf;
+      background: linear-gradient(180deg, #fffdf8 0%, #f5efe4 100%);
+      aspect-ratio: 16 / 10;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      cursor: crosshair;
+    }
+    .overlay-label {
+      position: absolute;
+      top: 12px;
+      left: 14px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.88);
+      border: 1px solid var(--line);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      font-weight: 700;
+    }
+    .panel {
+      padding: 16px;
+      display: grid;
+      align-content: start;
+      gap: 12px;
+    }
+    .panel h2 {
+      margin: 0;
+      font-size: 15px;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+    }
+    .control {
+      display: grid;
+      gap: 6px;
+      font-size: 12px;
+    }
+    .control label {
+      display: flex;
+      justify-content: space-between;
+      font-weight: 600;
+    }
+    .control output { color: var(--c3); font-variant-numeric: tabular-nums; }
+    input[type="range"], select { width: 100%; }
+    input[type="range"] { accent-color: var(--c3); }
+    select {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 8px;
+      background: #fff;
+      font: inherit;
+      font-size: 13px;
+    }
+    .row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .row input { width: auto; }
+    button {
+      border: none;
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: var(--c1);
+      color: #fff;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 8px 18px rgba(31, 122, 111, 0.24);
+    }
+    .metric {
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid #e7ddcf;
+      background: #fff;
+      font-size: 13px;
+      display: grid;
+      gap: 3px;
+    }
+    .metric strong {
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+    }
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .predicted-row {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+    .dot.predicted {
+      width: 12px;
+      height: 12px;
+      margin-right: 0;
+      border: 1px solid #1a1712;
+    }
+    .c1 { background: var(--c1); }
+    .c2 { background: var(--c2); }
+    .c3 { background: var(--c3); }
+    .note {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+    @media (max-width: 980px) {
+      main { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>k-NN Neighborhood Explorer</h1>
+    <p>Drag the gold query point and watch how nearest neighbors vote. Toggle the decision region to see how changing <em>k</em> reshapes the classifier.</p>
+  </header>
+
+  <main>
+    <section class="card viz">
+      <div class="canvas-shell">
+        <div class="overlay-label">Feature Space</div>
+        <canvas id="plot" aria-label="k-NN plot"></canvas>
+      </div>
+    </section>
+
+    <aside class="card panel">
+      <h2>Controls</h2>
+
+      <div class="control">
+        <label for="kSlider">Neighbors (k) <output id="kOut">5</output></label>
+        <input id="kSlider" type="range" min="1" max="25" step="1" value="5" />
+      </div>
+
+      <div class="control">
+        <label for="metric">Distance Metric</label>
+        <select id="metric">
+          <option value="euclidean">Euclidean</option>
+          <option value="manhattan">Manhattan</option>
+        </select>
+      </div>
+
+      <div class="control">
+        <label for="datasetNoise">Dataset Noise</label>
+        <select id="datasetNoise">
+          <option value="balanced">Balanced (default)</option>
+          <option value="noisy">Noisy overlap</option>
+          <option value="very_noisy">Very noisy overlap</option>
+        </select>
+      </div>
+
+      <label class="row" for="showRegion">
+        <input id="showRegion" type="checkbox" checked />
+        Show decision region
+      </label>
+
+      <button id="regenBtn" type="button">Regenerate Dataset</button>
+
+      <div class="metric">
+        <strong>Predicted Class</strong>
+        <span class="predicted-row">
+          <i id="predictedDot" class="dot predicted c1"></i>
+          <span id="predicted">Class A</span>
+        </span>
+      </div>
+
+      <div class="metric">
+        <strong>Vote Breakdown</strong>
+        <span id="votes">A: 0 | B: 0 | C: 0</span>
+      </div>
+
+      <div class="metric">
+        <strong>Neighborhood Radius</strong>
+        <span id="radius">0.00</span>
+      </div>
+
+      <div class="legend">
+        <span><i class="dot c1"></i>Class A</span>
+        <span><i class="dot c2"></i>Class B</span>
+        <span><i class="dot c3"></i>Class C</span>
+      </div>
+
+      <p class="note">Tip: click an empty space to move the query point instantly. Drag any training point to create edge cases.</p>
+    </aside>
+  </main>
+
+  <script>
+    const canvas = document.getElementById('plot');
+    const ctx = canvas.getContext('2d');
+
+    const kSlider = document.getElementById('kSlider');
+    const kOut = document.getElementById('kOut');
+    const metricEl = document.getElementById('metric');
+    const datasetNoiseEl = document.getElementById('datasetNoise');
+    const showRegionEl = document.getElementById('showRegion');
+    const regenBtn = document.getElementById('regenBtn');
+
+    const predictedEl = document.getElementById('predicted');
+    const predictedDotEl = document.getElementById('predictedDot');
+    const votesEl = document.getElementById('votes');
+    const radiusEl = document.getElementById('radius');
+
+    const colors = ['#1f7a6f', '#e46b3c', '#2b4d7d'];
+    const labels = ['Class A', 'Class B', 'Class C'];
+
+    const world = { minX: -1, maxX: 1, minY: -1, maxY: 1 };
+    const pad = { l: 60, r: 20, t: 24, b: 44 };
+
+    const state = {
+      points: [],
+      query: { x: 0.1, y: 0.1 },
+      k: 5,
+      metric: 'euclidean',
+      datasetNoise: 'balanced',
+      showRegion: true,
+      draggingQuery: false,
+      draggingPoint: null,
+      neighborInfo: null
+    };
+
+    function makeRng(seed) {
+      let s = seed >>> 0;
+      return () => {
+        s += 0x6D2B79F5;
+        let t = Math.imul(s ^ (s >>> 15), 1 | s);
+        t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+
+    function toPixel(pt) {
+      const w = canvas.width - pad.l - pad.r;
+      const h = canvas.height - pad.t - pad.b;
+      return {
+        x: pad.l + ((pt.x - world.minX) / (world.maxX - world.minX)) * w,
+        y: pad.t + (1 - (pt.y - world.minY) / (world.maxY - world.minY)) * h
+      };
+    }
+
+    function toWorld(px, py) {
+      const w = canvas.width - pad.l - pad.r;
+      const h = canvas.height - pad.t - pad.b;
+      const x = world.minX + ((px - pad.l) / w) * (world.maxX - world.minX);
+      const y = world.minY + (1 - (py - pad.t) / h) * (world.maxY - world.minY);
+      return {
+        x: Math.max(world.minX, Math.min(world.maxX, x)),
+        y: Math.max(world.minY, Math.min(world.maxY, y))
+      };
+    }
+
+    function dist(a, b) {
+      const dx = a.x - b.x;
+      const dy = a.y - b.y;
+      if (state.metric === 'manhattan') return Math.abs(dx) + Math.abs(dy);
+      return Math.hypot(dx, dy);
+    }
+
+    function generateData(seed = 42) {
+      const rng = makeRng(seed);
+      const presets = {
+        balanced: {
+          centers: [
+            { x: -0.45, y: 0.42 },
+            { x: 0.46, y: 0.32 },
+            { x: -0.02, y: -0.44 }
+          ],
+          rBase: 0.18,
+          rJitter: 0.09,
+          pointJitter: 0.08,
+          outlierChance: 0.0
+        },
+        noisy: {
+          centers: [
+            { x: -0.32, y: 0.30 },
+            { x: 0.35, y: 0.22 },
+            { x: 0.02, y: -0.30 }
+          ],
+          rBase: 0.22,
+          rJitter: 0.14,
+          pointJitter: 0.14,
+          outlierChance: 0.05
+        },
+        very_noisy: {
+          centers: [
+            { x: -0.26, y: 0.20 },
+            { x: 0.26, y: 0.18 },
+            { x: 0.00, y: -0.20 }
+          ],
+          rBase: 0.26,
+          rJitter: 0.18,
+          pointJitter: 0.20,
+          outlierChance: 0.12
+        }
+      };
+      const preset = presets[state.datasetNoise] || presets.balanced;
+      const centers = preset.centers;
+      const out = [];
+      for (let c = 0; c < centers.length; c += 1) {
+        for (let i = 0; i < 28; i += 1) {
+          const r1 = rng();
+          const r2 = rng();
+          const radius = preset.rBase + preset.rJitter * r1;
+          const ang = 2 * Math.PI * r2;
+          let x = centers[c].x + Math.cos(ang) * radius + (rng() - 0.5) * preset.pointJitter;
+          let y = centers[c].y + Math.sin(ang) * radius + (rng() - 0.5) * preset.pointJitter;
+          if (rng() < preset.outlierChance) {
+            x = -0.92 + rng() * 1.84;
+            y = -0.92 + rng() * 1.84;
+          }
+          out.push({
+            x,
+            y,
+            cls: c
+          });
+        }
+      }
+      state.points = out.map(p => ({
+        x: Math.max(world.minX + 0.01, Math.min(world.maxX - 0.01, p.x)),
+        y: Math.max(world.minY + 0.01, Math.min(world.maxY - 0.01, p.y)),
+        cls: p.cls
+      }));
+      state.query = { x: 0.08, y: 0.06 };
+    }
+
+    function classify(point) {
+      const arr = state.points.map((p, i) => ({ i, cls: p.cls, d: dist(p, point) }));
+      arr.sort((a, b) => a.d - b.d);
+      const k = Math.min(state.k, arr.length);
+      const neighbors = arr.slice(0, k);
+      const votes = [0, 0, 0];
+      neighbors.forEach(n => { votes[n.cls] += 1; });
+      let pred = 0;
+      for (let i = 1; i < votes.length; i += 1) {
+        if (votes[i] > votes[pred]) pred = i;
+      }
+      const radius = neighbors.length ? neighbors[neighbors.length - 1].d : 0;
+      return { neighbors, votes, pred, radius };
+    }
+
+    function drawAxes() {
+      const x0 = toPixel({ x: world.minX, y: 0 }).y;
+      const y0 = toPixel({ x: 0, y: world.minY }).x;
+
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.fillStyle = '#fbf6ed';
+      ctx.fillRect(pad.l, pad.t, canvas.width - pad.l - pad.r, canvas.height - pad.t - pad.b);
+
+      ctx.strokeStyle = '#eadfce';
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= 10; i += 1) {
+        const t = i / 10;
+        const x = pad.l + t * (canvas.width - pad.l - pad.r);
+        const y = pad.t + t * (canvas.height - pad.t - pad.b);
+        ctx.beginPath();
+        ctx.moveTo(x, pad.t);
+        ctx.lineTo(x, canvas.height - pad.b);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(pad.l, y);
+        ctx.lineTo(canvas.width - pad.r, y);
+        ctx.stroke();
+      }
+
+      ctx.strokeStyle = '#b8a88f';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(pad.l, x0);
+      ctx.lineTo(canvas.width - pad.r, x0);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(y0, pad.t);
+      ctx.lineTo(y0, canvas.height - pad.b);
+      ctx.stroke();
+
+      ctx.fillStyle = '#7c7265';
+      ctx.font = '12px Work Sans, sans-serif';
+      ctx.fillText('Feature 1', canvas.width / 2 - 24, canvas.height - 14);
+      ctx.save();
+      ctx.translate(16, canvas.height / 2 + 22);
+      ctx.rotate(-Math.PI / 2);
+      ctx.fillText('Feature 2', 0, 0);
+      ctx.restore();
+    }
+
+    function drawRegion() {
+      if (!state.showRegion) return;
+      const cols = 62;
+      const rows = 38;
+      const w = (canvas.width - pad.l - pad.r) / cols;
+      const h = (canvas.height - pad.t - pad.b) / rows;
+      for (let i = 0; i < cols; i += 1) {
+        for (let j = 0; j < rows; j += 1) {
+          const wx = world.minX + ((i + 0.5) / cols) * (world.maxX - world.minX);
+          const wy = world.maxY - ((j + 0.5) / rows) * (world.maxY - world.minY);
+          const pred = classify({ x: wx, y: wy }).pred;
+          ctx.fillStyle = `${colors[pred]}20`;
+          ctx.fillRect(pad.l + i * w, pad.t + j * h, w + 0.7, h + 0.7);
+        }
+      }
+    }
+
+    function drawPoints(info) {
+      info.neighbors.forEach(n => {
+        const p = state.points[n.i];
+        const pp = toPixel(p);
+        ctx.strokeStyle = '#1a1712aa';
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.moveTo(pp.x, pp.y);
+        const qp = toPixel(state.query);
+        ctx.lineTo(qp.x, qp.y);
+        ctx.stroke();
+      });
+
+      state.points.forEach((p, i) => {
+        const px = toPixel(p);
+        const isNeighbor = info.neighbors.some(n => n.i === i);
+        ctx.beginPath();
+        ctx.arc(px.x, px.y, isNeighbor ? 8 : 6, 0, Math.PI * 2);
+        ctx.fillStyle = colors[p.cls];
+        ctx.fill();
+        ctx.lineWidth = isNeighbor ? 2.6 : 1.2;
+        ctx.strokeStyle = isNeighbor ? '#1a1712' : '#fff';
+        ctx.stroke();
+      });
+
+      const q = toPixel(state.query);
+      const radiusPx = state.metric === 'euclidean'
+        ? (info.radius / (world.maxX - world.minX)) * (canvas.width - pad.l - pad.r)
+        : ((info.radius / (world.maxX - world.minX)) * (canvas.width - pad.l - pad.r) +
+           (info.radius / (world.maxY - world.minY)) * (canvas.height - pad.t - pad.b)) / 2;
+
+      ctx.strokeStyle = '#c49a12';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([8, 6]);
+      ctx.beginPath();
+      ctx.arc(q.x, q.y, Math.max(0, radiusPx), 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.beginPath();
+      ctx.arc(q.x, q.y, 9, 0, Math.PI * 2);
+      ctx.fillStyle = '#f2c14e';
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#1a1712';
+      ctx.stroke();
+    }
+
+    function draw() {
+      const info = classify(state.query);
+      state.neighborInfo = info;
+
+      drawAxes();
+      drawRegion();
+      drawPoints(info);
+      updateReadout(info);
+    }
+
+    function updateReadout(info) {
+      predictedEl.textContent = labels[info.pred];
+      predictedDotEl.style.background = colors[info.pred];
+      votesEl.textContent = `A: ${info.votes[0]} | B: ${info.votes[1]} | C: ${info.votes[2]}`;
+      radiusEl.textContent = info.radius.toFixed(3);
+    }
+
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      const w = Math.max(1, Math.round(rect.width * dpr));
+      const h = Math.max(1, Math.round(rect.height * dpr));
+      if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w;
+        canvas.height = h;
+      }
+      draw();
+    }
+
+    function pickPoint(mx, my) {
+      let best = null;
+      let bestD = Infinity;
+      state.points.forEach((p, i) => {
+        const q = toPixel(p);
+        const d = Math.hypot(mx - q.x, my - q.y);
+        if (d < bestD) {
+          bestD = d;
+          best = i;
+        }
+      });
+      return bestD <= 10 ? best : null;
+    }
+
+    function pickQuery(mx, my) {
+      const q = toPixel(state.query);
+      return Math.hypot(mx - q.x, my - q.y) <= 12;
+    }
+
+    function pointerPos(ev) {
+      const rect = canvas.getBoundingClientRect();
+      const sx = canvas.width / rect.width;
+      const sy = canvas.height / rect.height;
+      return {
+        x: (ev.clientX - rect.left) * sx,
+        y: (ev.clientY - rect.top) * sy
+      };
+    }
+
+    canvas.addEventListener('pointerdown', (ev) => {
+      const pos = pointerPos(ev);
+      const draggedPoint = pickPoint(pos.x, pos.y);
+      if (draggedPoint !== null) {
+        state.draggingPoint = draggedPoint;
+        canvas.setPointerCapture(ev.pointerId);
+        return;
+      }
+      if (pickQuery(pos.x, pos.y)) {
+        state.draggingQuery = true;
+        canvas.setPointerCapture(ev.pointerId);
+        return;
+      }
+      state.query = toWorld(pos.x, pos.y);
+      draw();
+    });
+
+    canvas.addEventListener('pointermove', (ev) => {
+      if (!state.draggingQuery && state.draggingPoint === null) return;
+      const pos = pointerPos(ev);
+      if (state.draggingQuery) {
+        state.query = toWorld(pos.x, pos.y);
+      } else if (state.draggingPoint !== null) {
+        state.points[state.draggingPoint] = { ...toWorld(pos.x, pos.y), cls: state.points[state.draggingPoint].cls };
+      }
+      draw();
+    });
+
+    function stopDrag() {
+      state.draggingQuery = false;
+      state.draggingPoint = null;
+    }
+
+    canvas.addEventListener('pointerup', stopDrag);
+    canvas.addEventListener('pointerleave', stopDrag);
+
+    kSlider.addEventListener('input', () => {
+      state.k = Number(kSlider.value);
+      kOut.textContent = String(state.k);
+      draw();
+    });
+
+    metricEl.addEventListener('change', () => {
+      state.metric = metricEl.value;
+      draw();
+    });
+
+    datasetNoiseEl.addEventListener('change', () => {
+      state.datasetNoise = datasetNoiseEl.value;
+      generateData(Math.floor(Math.random() * 1e9));
+      draw();
+    });
+
+    showRegionEl.addEventListener('change', () => {
+      state.showRegion = showRegionEl.checked;
+      draw();
+    });
+
+    regenBtn.addEventListener('click', () => {
+      const seed = Math.floor(Math.random() * 1e9);
+      generateData(seed);
+      draw();
+    });
+
+    generateData(42);
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+  </script>
+</body>
+</html>
