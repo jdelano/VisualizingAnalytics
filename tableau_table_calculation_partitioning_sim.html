@@ -1,0 +1,1012 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tableau Table Calculation Path Simulator</title>
+  <style>
+    :root {
+      --app-bg: #f3f4f6;
+      --chrome: #e7eaee;
+      --chrome-dark: #d7dbe1;
+      --sheet: #ffffff;
+      --grid: #d8dde6;
+      --header: #f7f8fa;
+      --text: #2e3138;
+      --muted: #6e7581;
+      --pill: #fdfefe;
+      --pill-border: #cfd5dd;
+      --blue: #4e79a7;
+      --blue-soft: rgba(78, 121, 167, 0.18);
+      --orange: #f28e2b;
+      --orange-soft: rgba(242, 142, 43, 0.18);
+      --yellow: #ffda6b;
+      --yellow-strong: #ffd24d;
+      --shadow: 0 18px 36px rgba(28, 33, 43, 0.12);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: linear-gradient(180deg, #f7f8fa 0%, #eef1f5 100%);
+      color: var(--text);
+      font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+    }
+
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: auto auto 1fr;
+    }
+
+    .topbar {
+      background: linear-gradient(180deg, #fbfcfd 0%, #eef1f4 100%);
+      border-bottom: 1px solid var(--chrome-dark);
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .brand-badge {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      display: grid;
+      place-items: center;
+      background: #f28e2b;
+      color: #fff;
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .brand-copy {
+      display: grid;
+      gap: 2px;
+    }
+
+    .brand-copy h1 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .brand-copy p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .mode-strip {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .mode-chip {
+      padding: 5px 9px;
+      border-radius: 999px;
+      background: #fff;
+      border: 1px solid var(--pill-border);
+    }
+
+    .shelves {
+      background: #f6f7f9;
+      border-bottom: 1px solid var(--chrome-dark);
+      padding: 10px 16px 12px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .shelf {
+      display: grid;
+      grid-template-columns: 74px 1fr;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .shelf-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.7px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      min-height: 34px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 7px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--pill-border);
+      background: var(--pill);
+      font-size: 12px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.85);
+    }
+
+    .pill.blue {
+      background: #d7e7fb;
+      border-color: #a7c3ea;
+    }
+
+    .pill.green {
+      background: #dff1e4;
+      border-color: #b7d8bf;
+    }
+
+    .pill.orange {
+      background: #fde7cf;
+      border-color: #f3c894;
+    }
+
+    .workspace {
+      padding: 18px 16px 24px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 330px;
+      gap: 16px;
+      align-items: start;
+    }
+
+    .sheet-shell,
+    .panel {
+      background: var(--sheet);
+      border: 1px solid var(--chrome-dark);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    .sheet-shell {
+      overflow: hidden;
+    }
+
+    .sheet-header {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--chrome);
+      background: linear-gradient(180deg, #fafbfd 0%, #f0f2f6 100%);
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .sheet-title {
+      display: grid;
+      gap: 2px;
+    }
+
+    .sheet-title strong {
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .sheet-title span {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .status {
+      font-size: 12px;
+      color: var(--muted);
+      text-align: right;
+    }
+
+    .table-wrap {
+      overflow: auto;
+      background: #fff;
+    }
+
+    table {
+      width: 100%;
+      min-width: 760px;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    th,
+    td {
+      border: 1px solid var(--grid);
+    }
+
+    thead th {
+      background: var(--header);
+      color: #4b515c;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      padding: 8px 6px;
+      text-align: center;
+    }
+
+    .stub {
+      background: #fafbfc;
+      text-align: left;
+      padding: 8px 10px;
+      font-size: 12px;
+      color: #4f5662;
+    }
+
+    .category-stub {
+      width: 150px;
+      font-weight: 600;
+      background: #f8fafc;
+      vertical-align: middle;
+    }
+
+    .region-stub {
+      width: 120px;
+    }
+
+    tbody tr.pane-start td,
+    tbody tr.pane-start th {
+      border-top: 2px solid #c3c9d2;
+    }
+
+    .measure-cell {
+      position: relative;
+      height: 74px;
+      padding: 8px 10px 10px;
+      vertical-align: top;
+      background: #fff;
+      transition: background-color 0.18s ease, box-shadow 0.18s ease, outline-color 0.18s ease;
+    }
+
+    .measure-cell.partition-start::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+      background: var(--orange);
+    }
+
+    .measure-cell.visited {
+      background: var(--blue-soft);
+    }
+
+    .measure-cell.active {
+      background: linear-gradient(180deg, #fff3b0 0%, #ffe07c 100%);
+      box-shadow: inset 0 0 0 2px var(--yellow-strong);
+      z-index: 1;
+    }
+
+    .measure-cell.partition-start.active {
+      box-shadow: inset 0 0 0 2px var(--yellow-strong), inset 4px 0 0 var(--orange);
+    }
+
+    .cell-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: start;
+      margin-bottom: 5px;
+    }
+
+    .sales {
+      font-size: 16px;
+      font-weight: 600;
+      color: #2f343c;
+      line-height: 1.1;
+    }
+
+    .calc {
+      font-size: 12px;
+      color: var(--blue);
+      font-weight: 600;
+    }
+
+    .sequence {
+      min-width: 22px;
+      height: 22px;
+      padding: 0 6px;
+      border-radius: 999px;
+      display: inline-grid;
+      place-items: center;
+      font-size: 11px;
+      font-weight: 700;
+      color: #fff;
+      background: #aab2bf;
+    }
+
+    .measure-cell.visited .sequence {
+      background: var(--blue);
+    }
+
+    .measure-cell.active .sequence {
+      background: #865200;
+    }
+
+    .meta {
+      display: grid;
+      gap: 3px;
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.25;
+    }
+
+    .meta strong {
+      color: #3f4650;
+      font-weight: 600;
+    }
+
+    .panel {
+      padding: 14px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .panel-section {
+      display: grid;
+      gap: 8px;
+    }
+
+    .panel-section h2 {
+      margin: 0;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+      color: var(--muted);
+    }
+
+    .control {
+      display: grid;
+      gap: 5px;
+      font-size: 13px;
+    }
+
+    .control label {
+      font-weight: 600;
+      color: #414750;
+    }
+
+    select,
+    input[type="range"],
+    button {
+      font: inherit;
+    }
+
+    select {
+      width: 100%;
+      padding: 8px 9px;
+      border-radius: 6px;
+      border: 1px solid #cfd5dd;
+      background: #fff;
+    }
+
+    .button-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    button {
+      border: 1px solid #c6ccd5;
+      border-radius: 6px;
+      padding: 9px 10px;
+      cursor: pointer;
+      background: linear-gradient(180deg, #ffffff 0%, #f1f3f6 100%);
+      color: #2f343c;
+      font-weight: 600;
+    }
+
+    button.primary {
+      background: linear-gradient(180deg, #5993cc 0%, #4e79a7 100%);
+      border-color: #4e79a7;
+      color: #fff;
+    }
+
+    .note-box {
+      border: 1px solid var(--chrome);
+      border-radius: 6px;
+      background: #fafbfd;
+      padding: 10px 11px;
+      font-size: 12px;
+      line-height: 1.45;
+      color: #545b66;
+    }
+
+    .note-box strong {
+      color: #30353d;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .stat {
+      border: 1px solid var(--chrome);
+      border-radius: 6px;
+      background: #fafbfd;
+      padding: 9px 10px;
+      display: grid;
+      gap: 2px;
+    }
+
+    .stat strong {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--muted);
+    }
+
+    .stat span {
+      font-size: 18px;
+      font-weight: 600;
+      color: #2f343c;
+    }
+
+    .legend {
+      display: grid;
+      gap: 7px;
+      font-size: 12px;
+      color: #57606a;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .swatch {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      border: 1px solid #cfd5dd;
+      background: #fff;
+      flex: 0 0 auto;
+    }
+
+    .swatch.visited { background: var(--blue-soft); }
+    .swatch.active { background: linear-gradient(180deg, #fff3b0 0%, #ffe07c 100%); }
+    .swatch.reset {
+      background: #fff;
+      box-shadow: inset 4px 0 0 var(--orange);
+    }
+
+    .footer-note {
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.45;
+    }
+
+    @media (max-width: 1100px) {
+      .workspace {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .workspace,
+      .shelves,
+      .topbar {
+        padding-left: 12px;
+        padding-right: 12px;
+      }
+
+      .button-row,
+      .stats {
+        grid-template-columns: 1fr;
+      }
+
+      .shelf {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-badge">T</div>
+        <div class="brand-copy">
+          <h1>Table Calculation Path Simulator</h1>
+          <p>Worksheet-style view for addressing and partitioning</p>
+        </div>
+      </div>
+      <div class="mode-strip">
+        <span class="mode-chip" id="computeChip">Compute Using: Table Down</span>
+        <span class="mode-chip" id="addressChip">Addressing: Region</span>
+        <span class="mode-chip" id="partitionChip">Partitioning: Entire Table</span>
+      </div>
+    </header>
+
+    <section class="shelves">
+      <div class="shelf">
+        <div class="shelf-label">Columns</div>
+        <div class="pill-row">
+          <span class="pill blue">MONTH(Order Date)</span>
+        </div>
+      </div>
+      <div class="shelf">
+        <div class="shelf-label">Rows</div>
+        <div class="pill-row">
+          <span class="pill green">Category</span>
+          <span class="pill green">Region</span>
+        </div>
+      </div>
+      <div class="shelf">
+        <div class="shelf-label">Marks</div>
+        <div class="pill-row">
+          <span class="pill orange">SUM(Sales)</span>
+          <span class="pill blue">RUNNING_SUM(SUM(Sales))</span>
+        </div>
+      </div>
+    </section>
+
+    <main class="workspace">
+      <section class="sheet-shell">
+        <div class="sheet-header">
+          <div class="sheet-title">
+            <strong>Sheet 1</strong>
+            <span>Rows: Category, Region | Columns: Month</span>
+          </div>
+          <div class="status" id="statusText">Ready to animate table calculation path.</div>
+        </div>
+
+        <div class="table-wrap">
+          <table aria-label="Tableau-style crosstab">
+            <thead>
+              <tr>
+                <th class="stub" colspan="2">Category / Region</th>
+                <th>January</th>
+                <th>February</th>
+                <th>March</th>
+                <th>April</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <aside class="panel">
+        <section class="panel-section">
+          <h2>Compute Using</h2>
+          <div class="control">
+            <label for="modeSelect">Traversal preset</label>
+            <select id="modeSelect">
+              <option value="table_down">Table (Down)</option>
+              <option value="table_across">Table (Across)</option>
+              <option value="pane_down">Pane (Down)</option>
+              <option value="pane_across">Pane (Across)</option>
+              <option value="cell">Cell</option>
+            </select>
+          </div>
+          <div class="control">
+            <label for="speedRange">Animation speed</label>
+            <input id="speedRange" type="range" min="180" max="900" step="30" value="420" />
+          </div>
+          <div class="button-row">
+            <button class="primary" id="playPauseButton" type="button">Play</button>
+            <button id="stepButton" type="button">Step</button>
+            <button id="resetButton" type="button">Reset</button>
+          </div>
+        </section>
+
+        <section class="panel-section">
+          <h2>Derived Settings</h2>
+          <div class="stats">
+            <div class="stat">
+              <strong>Partitions</strong>
+              <span id="partitionCount">1</span>
+            </div>
+            <div class="stat">
+              <strong>Marks / Partition</strong>
+              <span id="marksPerPartition">12</span>
+            </div>
+          </div>
+          <div class="note-box" id="modeExplanation"></div>
+        </section>
+
+        <section class="panel-section">
+          <h2>Legend</h2>
+          <div class="legend">
+            <div class="legend-item"><span class="swatch active"></span><span>Current mark in the table calculation path</span></div>
+            <div class="legend-item"><span class="swatch visited"></span><span>Marks already visited in the current pass</span></div>
+            <div class="legend-item"><span class="swatch reset"></span><span>First mark in a partition where the calc resets</span></div>
+          </div>
+        </section>
+
+        <section class="panel-section">
+          <h2>Current Step</h2>
+          <div class="note-box" id="currentStepBox">
+            <strong>Not started.</strong><br />
+            Press Play to animate the path one cell at a time.
+          </div>
+        </section>
+
+        <section class="panel-section">
+          <h2>Why This Matches Tableau</h2>
+          <div class="note-box">
+            <strong>Table (Down)</strong> addresses down each column before moving to the next column.<br /><br />
+            <strong>Table (Across)</strong> addresses across each row before moving to the next row.<br /><br />
+            <strong>Pane</strong> modes restart inside each Category pane because Category sits above Region on the Rows shelf.
+          </div>
+          <div class="footer-note">The layout is fixed on purpose so the only thing changing is the path the calculation takes through the same visible crosstab.</div>
+        </section>
+      </aside>
+    </main>
+  </div>
+
+  <script>
+    const categories = ["Furniture", "Office Supplies", "Technology"];
+    const regions = ["Central", "East", "West"];
+    const months = ["January", "February", "March", "April"];
+
+    const salesByCategory = {
+      Furniture: {
+        Central: [76, 88, 96, 110],
+        East: [92, 118, 135, 124],
+        West: [104, 115, 126, 142]
+      },
+      "Office Supplies": {
+        Central: [58, 63, 71, 77],
+        East: [68, 74, 81, 89],
+        West: [72, 79, 86, 96]
+      },
+      Technology: {
+        Central: [108, 121, 136, 149],
+        East: [132, 146, 164, 178],
+        West: [144, 159, 172, 188]
+      }
+    };
+
+    const modes = {
+      table_down: {
+        label: "Table Down",
+        addressing: "Region within each Month column",
+        partitioning: "Entire Table",
+        description: "Tableau walks down the first month column through every row, then moves to the next month column. The running sum resets only once for the entire sheet.",
+        partitionKey: (record) => "entire-table",
+        sorter: (a, b) => (a.monthIndex - b.monthIndex) || (a.rowIndex - b.rowIndex)
+      },
+      table_across: {
+        label: "Table Across",
+        addressing: "Month across each row",
+        partitioning: "Entire Table",
+        description: "Tableau walks across each row from January to April, then drops to the next row. The running sum still spans the full sheet because there is only one partition.",
+        partitionKey: (record) => "entire-table",
+        sorter: (a, b) => (a.rowIndex - b.rowIndex) || (a.monthIndex - b.monthIndex)
+      },
+      pane_down: {
+        label: "Pane Down",
+        addressing: "Region within each Month column",
+        partitioning: "Category panes",
+        description: "Each Category pane becomes its own partition. Tableau walks down the first month column inside Furniture, then the next month column, and then starts over again when it reaches Office Supplies.",
+        partitionKey: (record) => record.category,
+        sortWithinPartition: (a, b) => (a.monthIndex - b.monthIndex) || (a.regionIndex - b.regionIndex),
+        partitionOrder: (a, b) => a.categoryIndex - b.categoryIndex
+      },
+      pane_across: {
+        label: "Pane Across",
+        addressing: "Month across each Region row",
+        partitioning: "Category panes",
+        description: "Each Category pane is a separate partition. Tableau walks across Central first, then East, then West within the pane, and resets when it enters the next Category pane.",
+        partitionKey: (record) => record.category,
+        sortWithinPartition: (a, b) => (a.regionIndex - b.regionIndex) || (a.monthIndex - b.monthIndex),
+        partitionOrder: (a, b) => a.categoryIndex - b.categoryIndex
+      },
+      cell: {
+        label: "Cell",
+        addressing: "None",
+        partitioning: "Each mark is its own partition",
+        description: "Every cell is its own partition, so the running sum never carries into another mark. The highlight still walks the crosstab in visual row order, but the calculation restarts in every single cell.",
+        partitionKey: (record) => `${record.category}|${record.region}|${record.month}`,
+        sortWithinPartition: () => 0,
+        partitionOrder: (a, b) => (a.rowIndex - b.rowIndex) || (a.monthIndex - b.monthIndex)
+      }
+    };
+
+    const state = {
+      mode: "table_down",
+      stepIndex: -1,
+      playing: false,
+      speed: 420,
+      timer: null,
+      records: [],
+      orderedRecords: []
+    };
+
+    const tableBody = document.getElementById("tableBody");
+    const modeSelect = document.getElementById("modeSelect");
+    const speedRange = document.getElementById("speedRange");
+    const playPauseButton = document.getElementById("playPauseButton");
+    const stepButton = document.getElementById("stepButton");
+    const resetButton = document.getElementById("resetButton");
+    const computeChip = document.getElementById("computeChip");
+    const addressChip = document.getElementById("addressChip");
+    const partitionChip = document.getElementById("partitionChip");
+    const partitionCount = document.getElementById("partitionCount");
+    const marksPerPartition = document.getElementById("marksPerPartition");
+    const modeExplanation = document.getElementById("modeExplanation");
+    const currentStepBox = document.getElementById("currentStepBox");
+    const statusText = document.getElementById("statusText");
+
+    function currency(value) {
+      return `$${value}`;
+    }
+
+    function buildRecords() {
+      const rows = [];
+      categories.forEach((category, categoryIndex) => {
+        regions.forEach((region, regionIndex) => {
+          const rowIndex = categoryIndex * regions.length + regionIndex;
+          months.forEach((month, monthIndex) => {
+            rows.push({
+              id: `${category}-${region}-${month}`,
+              category,
+              region,
+              month,
+              categoryIndex,
+              regionIndex,
+              rowIndex,
+              monthIndex,
+              sales: salesByCategory[category][region][monthIndex]
+            });
+          });
+        });
+      });
+      return rows;
+    }
+
+    function cloneRecord(record) {
+      return { ...record };
+    }
+
+    function buildTraversal() {
+      const mode = modes[state.mode];
+      const groups = new Map();
+      state.records = buildRecords();
+
+      state.records.forEach((record) => {
+        const key = mode.partitionKey(record);
+        if (!groups.has(key)) {
+          groups.set(key, []);
+        }
+        groups.get(key).push(cloneRecord(record));
+      });
+
+      let orderedPartitions = Array.from(groups.values());
+
+      if (mode.partitionOrder) {
+        orderedPartitions.sort((a, b) => mode.partitionOrder(a[0], b[0]));
+      }
+
+      const result = [];
+      orderedPartitions.forEach((partition) => {
+        if (mode.sorter) {
+          partition.sort(mode.sorter);
+        } else if (mode.sortWithinPartition) {
+          partition.sort(mode.sortWithinPartition);
+        }
+
+        let running = 0;
+        partition.forEach((record, index) => {
+          running += record.sales;
+          record.sequence = result.length + 1;
+          record.partitionSequence = index + 1;
+          record.partitionIndex = orderedPartitions.indexOf(partition) + 1;
+          record.partitionSize = partition.length;
+          record.partitionStart = index === 0;
+          record.runningSum = running;
+          result.push(record);
+        });
+      });
+
+      state.orderedRecords = result;
+    }
+
+    function getRecordMap() {
+      const map = new Map();
+      state.orderedRecords.forEach((record, index) => {
+        map.set(record.id, {
+          ...record,
+          visited: index <= state.stepIndex,
+          active: index === state.stepIndex
+        });
+      });
+      return map;
+    }
+
+    function renderTable() {
+      const byId = getRecordMap();
+      tableBody.innerHTML = "";
+
+      categories.forEach((category, categoryIndex) => {
+        regions.forEach((region, regionIndex) => {
+          const tr = document.createElement("tr");
+          if (regionIndex === 0) {
+            tr.classList.add("pane-start");
+          }
+
+          if (regionIndex === 0) {
+            const categoryCell = document.createElement("th");
+            categoryCell.className = "stub category-stub";
+            categoryCell.rowSpan = regions.length;
+            categoryCell.textContent = category;
+            tr.appendChild(categoryCell);
+          }
+
+          const regionCell = document.createElement("th");
+          regionCell.className = "stub region-stub";
+          regionCell.textContent = region;
+          tr.appendChild(regionCell);
+
+          months.forEach((month) => {
+            const td = document.createElement("td");
+            const id = `${category}-${region}-${month}`;
+            const record = byId.get(id);
+            td.className = "measure-cell";
+            if (record.partitionStart) td.classList.add("partition-start");
+            if (record.visited) td.classList.add("visited");
+            if (record.active) td.classList.add("active");
+
+            td.innerHTML = `
+              <div class="cell-top">
+                <div>
+                  <div class="sales">${currency(record.sales)}</div>
+                  <div class="calc">RS ${currency(record.runningSum)}</div>
+                </div>
+                <span class="sequence">${record.sequence}</span>
+              </div>
+              <div class="meta">
+                <div><strong>Partition</strong> ${record.partitionIndex} of ${getPartitionTotal()}</div>
+                <div><strong>Within partition</strong> ${record.partitionSequence} / ${record.partitionSize}</div>
+              </div>
+            `;
+
+            tr.appendChild(td);
+          });
+
+          tableBody.appendChild(tr);
+        });
+      });
+    }
+
+    function getPartitionTotal() {
+      const total = new Set(state.orderedRecords.map((record) => `${state.mode}:${record.partitionIndex}`)).size;
+      return total;
+    }
+
+    function updateSummary() {
+      const mode = modes[state.mode];
+      const partitionTotal = getPartitionTotal();
+      const marksInFirstPartition = state.orderedRecords[0] ? state.orderedRecords[0].partitionSize : 0;
+
+      computeChip.textContent = `Compute Using: ${mode.label}`;
+      addressChip.textContent = `Addressing: ${mode.addressing}`;
+      partitionChip.textContent = `Partitioning: ${mode.partitioning}`;
+
+      partitionCount.textContent = String(partitionTotal);
+      marksPerPartition.textContent = String(marksInFirstPartition);
+      modeExplanation.innerHTML = `
+        <strong>${mode.label}</strong><br />
+        ${mode.description}
+      `;
+
+      if (state.stepIndex < 0) {
+        statusText.textContent = "Ready to animate table calculation path.";
+        currentStepBox.innerHTML = `
+          <strong>Not started.</strong><br />
+          The first highlighted mark will be the first addressed cell in partition 1.
+        `;
+        return;
+      }
+
+      const current = state.orderedRecords[state.stepIndex];
+      statusText.textContent = `Step ${state.stepIndex + 1} of ${state.orderedRecords.length} • ${current.category} / ${current.region} / ${current.month}`;
+      currentStepBox.innerHTML = `
+        <strong>Step ${state.stepIndex + 1}: ${current.category} / ${current.region} / ${current.month}</strong><br />
+        Sales = ${currency(current.sales)}<br />
+        Running sum in this partition = ${currency(current.runningSum)}<br />
+        Partition ${current.partitionIndex} • mark ${current.partitionSequence} of ${current.partitionSize}
+      `;
+    }
+
+    function rerender() {
+      renderTable();
+      updateSummary();
+    }
+
+    function stopPlayback() {
+      if (state.timer) {
+        clearTimeout(state.timer);
+        state.timer = null;
+      }
+      state.playing = false;
+      playPauseButton.textContent = "Play";
+    }
+
+    function scheduleNextStep() {
+      if (!state.playing) return;
+      state.timer = setTimeout(() => {
+        if (state.stepIndex >= state.orderedRecords.length - 1) {
+          stopPlayback();
+          return;
+        }
+        state.stepIndex += 1;
+        rerender();
+        scheduleNextStep();
+      }, state.speed);
+    }
+
+    function startPlayback() {
+      if (state.stepIndex >= state.orderedRecords.length - 1) {
+        state.stepIndex = -1;
+      }
+      state.playing = true;
+      playPauseButton.textContent = "Pause";
+      scheduleNextStep();
+    }
+
+    function rebuildAndReset() {
+      stopPlayback();
+      buildTraversal();
+      state.stepIndex = -1;
+      rerender();
+    }
+
+    modeSelect.addEventListener("input", () => {
+      state.mode = modeSelect.value;
+      rebuildAndReset();
+    });
+
+    speedRange.addEventListener("input", () => {
+      state.speed = Number(speedRange.value);
+      if (state.playing) {
+        clearTimeout(state.timer);
+        scheduleNextStep();
+      }
+    });
+
+    playPauseButton.addEventListener("click", () => {
+      if (state.playing) {
+        stopPlayback();
+      } else {
+        startPlayback();
+      }
+    });
+
+    stepButton.addEventListener("click", () => {
+      stopPlayback();
+      if (state.stepIndex < state.orderedRecords.length - 1) {
+        state.stepIndex += 1;
+      }
+      rerender();
+    });
+
+    resetButton.addEventListener("click", () => {
+      rebuildAndReset();
+    });
+
+    buildTraversal();
+    rerender();
+  </script>
+</body>
+</html>

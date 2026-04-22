@@ -355,6 +355,7 @@
         <a href="#regression">Regression</a>
         <a href="#sampling">Sampling</a>
         <a href="#classification">Classification</a>
+        <a href="#tableau">Tableau</a>
         <a href="#neural">Neural Networks</a>
         <a href="#overfitting">Overfitting</a>
         <a href="#clustering">Clustering</a>
@@ -640,6 +641,54 @@
   </section>
 
   
+
+  <section class="section" id="tableau">
+    <h3>Tableau Visual Simulations</h3>
+    <div class="grid">
+      <div class="card card-split">
+        <div class="card-left">
+          <div class="card-text">
+            <span class="pill">Table Calculations</span>
+            <h4>Addressing &amp; Partitioning Studio</h4>
+            <p>Animate the exact path Tableau takes through a worksheet and see how compute-using choices like Table Down and Pane Across change addressing and partition resets.</p>
+            <a href="tableau_table_calculation_partitioning_sim.html">Launch simulation →</a>
+          </div>
+          <div class="card-media">
+            <svg viewBox="8 8 104 74" aria-hidden="true">
+              <rect x="8" y="8" width="104" height="74" rx="8" fill="none" stroke="none"/>
+              <g transform="translate(-6 -4) scale(1.15)">
+                <rect x="16" y="18" width="26" height="20" rx="3" fill="#fff6ea" stroke="#d9cbb8" stroke-width="1"/>
+                <rect x="46" y="18" width="26" height="20" rx="3" fill="#fff6ea" stroke="#d9cbb8" stroke-width="1"/>
+                <rect x="76" y="18" width="26" height="20" rx="3" fill="#fff6ea" stroke="#d9cbb8" stroke-width="1"/>
+                <rect x="16" y="42" width="26" height="20" rx="3" fill="#fff6ea" stroke="#d9cbb8" stroke-width="1"/>
+                <rect x="46" y="42" width="26" height="20" rx="3" fill="#fff6ea" stroke="#d9cbb8" stroke-width="1"/>
+                <rect x="76" y="42" width="26" height="20" rx="3" fill="#fff6ea" stroke="#d9cbb8" stroke-width="1"/>
+                <path d="M28 28 H60 H90" fill="none" stroke="#0e7c86" stroke-width="2.2" stroke-linecap="round"/>
+                <path d="M90 28 l-6 -4 M90 28 l-6 4" fill="none" stroke="#0e7c86" stroke-width="2.2" stroke-linecap="round"/>
+                <circle cx="28" cy="28" r="3.2" fill="#d04e16" stroke="#1f1c18" stroke-width="0.6"/>
+                <circle cx="60" cy="28" r="3.2" fill="#d04e16" stroke="#1f1c18" stroke-width="0.6"/>
+                <circle cx="90" cy="28" r="3.2" fill="#d04e16" stroke="#1f1c18" stroke-width="0.6"/>
+                <rect x="15" y="17" width="28" height="22" rx="4" fill="none" stroke="#d6a33a" stroke-width="1.4"/>
+              </g>
+            </svg>
+          </div>
+        </div>
+        <div class="card-detail">
+          <div><strong>What you'll see</strong><br />A Tableau-style crosstab that highlights cells in the exact order the table calculation is read.</div>
+          <div><strong>Try this</strong><br />Play Table Down first, then switch to Pane Across and watch where the running sum restarts.</div>
+          <div><strong>Tags</strong>
+            <div class="tag-row">
+              <span class="tag">Addressing</span>
+              <span class="tag">Partitioning</span>
+              <span class="tag">Running total</span>
+            </div>
+          </div>
+          <div><strong>Metrics</strong><br />Partition count • Marks per partition</div>
+          <div><strong>Equation</strong><br /><span class="equation">table calc = f(order within partition)</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
 
   <section class="section" id="neural">
     <h3>Neural Networks</h3>
